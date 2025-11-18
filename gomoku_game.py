@@ -8,7 +8,8 @@ from time import sleep
 # 匯入我們的自訂模組
 from constants import *
 from game_board import GameBoard
-from ai_player import AIPlayer
+# [修改] 匯入新的 RL AI (學生)，而不是舊的 (老師)
+from rl_ai_player import RL_AIPlayer   
 from start_menu import StartMenu
 
 class GomokuGame:
@@ -16,7 +17,7 @@ class GomokuGame:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
-        pygame.display.set_caption("五子棋 OOP 對戰 (多檔案)")
+        pygame.display.set_caption("五子棋 OOP 對戰 (RL AI 測試中!)")
         
         # 載入資源 (字體)
         self.font_m = pygame.font.SysFont("黑体", 40)
@@ -37,7 +38,20 @@ class GomokuGame:
 
         # 遊戲物件
         self.board = GameBoard() # 從 game_board.py 建立
-        self.ai = AIPlayer()     # 從 ai_player.py 建立
+        
+        # [修改] 載入你訓練好的 RL AI 模型！
+        # ----------------------------------------------------
+        # 選擇你要測試的模型
+        MODEL_FILE_TO_TEST = "models/gomoku_rl_model_final.keras"
+        print(f"--- 正在載入 AI 模型: {MODEL_FILE_TO_TEST} ---")
+        try:
+            self.ai = RL_AIPlayer(model_path=MODEL_FILE_TO_TEST)
+        except Exception as e:
+            print(f"載入模型失敗! 錯誤: {e}")
+            print(f"請確認檔案是否存在: {MODEL_FILE_TO_TEST}")
+            exit()
+        # ----------------------------------------------------
+        
         self.menu = StartMenu(self.screen, self.img_bg, self.font_l, self.font_s) # 從 start_menu.py 建立
 
         # 遊戲狀態
@@ -98,16 +112,18 @@ class GomokuGame:
             print("Overwrite~~")
             return
 
-        # --- 落子成功 ---
+        # --- 落子成功 (玩家) ---
         self._execute_move(m, n, self.current_player_color)
         
-        self.last_move_x = m
-        self.last_move_y = n
-        
+        # 玩家 vs 玩家 模式
+        if self.game_mode == 'pvp':
+            return # 換下一個人下
+
+        # 玩家 vs AI 模式
         if not self.game_over and self.game_mode == 'ai':
             pygame.display.update() 
             sleep(0.1)
-            self._trigger_ai_move()
+            self._trigger_ai_move() # 觸發 AI
 
     def _execute_move(self, m, n, color):
         """執行一步棋 (落子、繪圖、檢查勝利、換邊)"""
@@ -128,21 +144,30 @@ class GomokuGame:
             self._show_winner_message(0)
             return
 
-        self.current_player_color *= -1
+        # 換邊 (只有在 PvP 模式下才需要這行)
+        if self.game_mode == 'pvp':
+            self.current_player_color *= -1
 
     def _trigger_ai_move(self):
         """觸發 AI 進行下一步"""
-        ai_color = -1
+        ai_color = -1 # AI 永遠是白棋 (-1)
         
-        x, y = self.ai.get_move(self.board.grid, self.last_move_x, self.last_move_y, ai_color)
+        # [修改] 使用 RL AI 的新函式
+        # ----------------------------------------------------
+        # 舊的呼叫 (老師): 
+        # x, y = self.ai.get_move(self.board.grid, self.last_move_x, self.last_move_y, ai_color)
+        
+        # 新的呼叫 (學生):
+        x, y = self.ai.get_move(self.board.grid, ai_color)
+        # ----------------------------------------------------
+        
         
         if not (self.board.is_valid(x, y) and self.board.is_empty(x, y)):
-            print("AI Error! Finding random spot...")
-            x, y = self.ai._find_random_empty(self.board.grid)
-            if (x, y) == (-1, -1):
-                self.game_over = True
-                self._show_winner_message(0)
-                return
+            # 這種情況不應該發生, 但還是做個保險
+            print("AI Error! 試圖下在非法位置. 遊戲強制結束.")
+            self.game_over = True
+            self._show_winner_message(0) # 判為平局
+            return
         
         self._execute_move(x, y, ai_color)
 
