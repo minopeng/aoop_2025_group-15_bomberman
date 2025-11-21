@@ -32,10 +32,10 @@ class AIPlayer:
         max_x_AI, max_y_AI, max_AI = self._evaluate(shape_AI)
 
         if max_P > max_AI and max_AI < self.MAX_SCORE:
-            print(f"AI 防守: ({max_x_P}, {max_y_P})")
+            #print(f"AI 防守: ({max_x_P}, {max_y_P})")
             return max_x_P, max_y_P
         else:
-            print(f"AI 進攻: ({max_x_AI}, {max_y_AI})")
+            #print(f"AI 進攻: ({max_x_AI}, {max_y_AI})")
             return max_x_AI, max_y_AI
 
     def _scan(self, chesspad, color):
@@ -109,7 +109,7 @@ class AIPlayer:
                             temp = j[w]
                             j[w - 1] = j[w]
                             j[w] = temp
-        print("AI Sort Done !")
+        #print("AI Sort Done !")
         return shape
 
     def _evaluate(self, shape):
@@ -128,7 +128,7 @@ class AIPlayer:
                     max_val = shape[i][j][4]
                     max_x = i
                     max_y = j
-        print(f"AI Evaluate max is {max_val} at ({max_x}, {max_y})")
+        #print(f"AI Evaluate max is {max_val} at ({max_x}, {max_y})")
         return max_x, max_y, max_val
 
     def _autoplay(self, ch, m, n):
