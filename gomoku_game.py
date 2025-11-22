@@ -1,27 +1,28 @@
+# gomoku_game.py
+# 測試模式：載入訓練好的 RL 模型
+
 import pygame
 from pygame.locals import *
 from time import sleep
 import os
 
-# Imports
+# 匯入模組
 from constants import *
 from game_board import GameBoard
+# [重點] 這裡我們要匯入 RL_AIPlayer (學生)
 from rl_ai_player import RL_AIPlayer   
 from start_menu import StartMenu
-from game_over_screen import GameOverScreen
 
 class GomokuGame:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
-        pygame.display.set_caption("Gomoku RL AI Test") # Translated Caption
+        pygame.display.set_caption("五子棋 RL AI 驗收測試")
         
-        # CHANGED: Used 'arial' instead of 'SimHei' (Chinese font)
-        self.font_m = pygame.font.SysFont("arial", 40)
-        self.font_l = pygame.font.SysFont("arial", 60, bold=True)
-        self.font_s = pygame.font.SysFont("arial", 30)
+        self.font_m = pygame.font.SysFont("黑体", 40)
+        self.font_l = pygame.font.SysFont("黑体", 60)
+        self.font_s = pygame.font.SysFont("黑体", 30)
         
-        # Load Images
         try:
             self.img_bg = pygame.image.load('./Res/bg.png').convert()
             img_white = pygame.image.load('./Res/white.png').convert_alpha()
@@ -29,95 +30,145 @@ class GomokuGame:
             self.img_white = pygame.transform.smoothscale(img_white, (int(img_white.get_width() * 1.5), int(img_white.get_height() * 1.5)))
             self.img_black = pygame.transform.smoothscale(img_black, (int(img_black.get_width() * 1.5), int(img_black.get_height() * 1.5)))
         except pygame.error as e:
-            print(f"Error: Image resources not found - {e}")
+            print(f"錯誤: 找不到圖片資源 - {e}")
             exit()
 
-        # Load AI
+        self.board = GameBoard()
+        
+        # ----------------------------------------------------
+        # [關鍵設定] 指定你要測試的模型檔案
+        # 剛跑完訓練通常是存成這個名字：
         MODEL_FILE_TO_TEST = "models/gomoku_rl_model_final.keras"
-        print(f"--- Loading AI Model: {MODEL_FILE_TO_TEST} ---")
+        
+        print(f"--- 正在載入 AI 模型: {MODEL_FILE_TO_TEST} ---")
         
         if not os.path.exists(MODEL_FILE_TO_TEST):
-            print(f"❌ Error: Model file not found!")
+            print(f"❌ 錯誤：找不到模型檔案！請確認 train.py 是否跑完並存檔。")
+            print(f"搜尋路徑: {MODEL_FILE_TO_TEST}")
             exit()
             
         try:
+            # 載入模型
             self.ai = RL_AIPlayer(model_path=MODEL_FILE_TO_TEST)
-            print("✅ Model loaded successfully!")
+            print("✅ 模型載入成功！準備開戰！")
         except Exception as e:
-            print(f"❌ Failed to load model: {e}")
+            print(f"❌ 模型載入失敗: {e}")
             exit()
-
-        # Initialize Screens
-        self.menu = StartMenu(self.screen, self.img_bg, self.font_l, self.font_s)
-        self.game_over_screen = GameOverScreen(self.screen, self.font_l, self.font_s)
+        # ----------------------------------------------------
         
-        # Game State Variables
-        self.board = None
+        self.menu = StartMenu(self.screen, self.img_bg, self.font_l, self.font_s)
         self.game_mode = None 
+        self.running = True
         self.game_over = False
-        self.winner = 0 # 0: Draw, 1: Black, -1: White
         self.current_player_color = 1 
         self.dot_list = [(25 + i * 50 - self.img_white.get_width() / 2, 25 + j * 50 - self.img_white.get_height() / 2) 
                          for i in range(LEVEL) for j in range(LEVEL)]
+        self.last_move_x = -1
+        self.last_move_y = -1
 
     def run(self):
-        """Main Game Loop: Manages the flow between Menu, Game, and GameOver"""
         while True:
-            # --- 1. Show Start Menu ---
+            # --- Step 1: Show Start Menu ---
             self.game_mode = self.menu.run()
             if self.game_mode is None:
-                break # User clicked Quit in Menu
+                break # User clicked Quit in the Menu -> Close App
 
-            # --- 2. Game Loop (Repeats if 'Restart' is chosen) ---
+            # --- Step 2: Game Match Loop ---
             while True: 
-                self._reset_game_state()
+                self._reset_game_state() # Reset board for a new game
                 
-                # Run the actual gameplay
+                # Run the game until someone wins
                 self._play_match()
                 
-                # --- 3. Show Game Over Screen ---
-                # Returns: 'restart', 'menu', or None
+                # --- Step 3: Game Over Screen ---
+                # This screen asks: "Play Again", "Menu", or "Quit"
                 action = self.game_over_screen.run(self.winner)
                 
                 if action == 'restart':
-                    continue # Loop back to _reset_game_state()
+                    continue # Loop back to _reset_game_state() (Play Again)
                 elif action == 'menu':
-                    break # Break inner loop, go back to Start Menu
+                    break # BREAK the inner loop -> Go back to Step 1 (Start Menu)
                 else:
-                    pygame.quit()
-                    exit() # Quit entirely
+                    pygame.quit() # User clicked Quit
+                    exit()
 
         pygame.quit()
         exit()
-
+        
     def _reset_game_state(self):
-        """Resets board and variables for a new match"""
-        self.board = GameBoard()
+        """
+        Crucial: We must wipe the board clean before starting a new game.
+        """
+        self.board = GameBoard() # Create a fresh board
         self.game_over = False
         self.winner = 0
         self.current_player_color = 1
+        
+        # Redraw the background to clear old stones
         self.screen.blit(self.img_bg, (0, 0))
         pygame.display.update()
 
     def _play_match(self):
-        """The core loop for placing stones until someone wins"""
+        """Blocks here running the game until self.game_over becomes True"""
         while not self.game_over:
             self._handle_events()
+            # (The rest of your game logic happens inside _handle_events -> _execute_move)
             
-            # Small delay to prevent CPU hogging
-            if self.game_mode == 'ai' and self.current_player_color == -1 and not self.game_over:
-                 pass
-
+            # CPU optimization
+            if self.game_mode == 'ai' and self.current_player_color == -1:
+                pass
     def _handle_events(self):
         for event in pygame.event.get():
             if event.type == QUIT: 
                 pygame.quit()
                 exit()
+            
+            # [NEW] Handle Keyboard Input
+            if event.type == KEYDOWN:
+                if event.key == K_u and not self.game_over: # Press 'U' to Undo
+                    self._undo_move()
+
             if event.type == MOUSEBUTTONDOWN and not self.game_over:
-                # Only human (Black=1) can click. 
                 if self.game_mode == 'ai' and self.current_player_color == -1:
-                    continue # Ignore clicks during AI turn
+                    continue 
                 self._handle_mouse_click(event.pos)
+
+    # [NEW] Add this logic function
+    def _undo_move(self):
+        """Handles the logic for undoing moves."""
+        print("Undo requested...")
+        
+        if self.game_mode == 'pvp':
+            # In PvP, undo 1 move and switch turn back
+            if self.board.undo_last_move():
+                self.current_player_color *= -1
+                self._redraw_board()
+                
+        elif self.game_mode == 'ai':
+            # In AI mode, we must undo TWO moves (AI's and Player's)
+            # to let the player try again.
+            if len(self.board.history) >= 2:
+                self.board.undo_last_move() # Undo AI
+                self.board.undo_last_move() # Undo Player
+                self._redraw_board()
+            elif len(self.board.history) == 1:
+                # Rare case: Player moved, AI crashed/didn't move yet
+                self.board.undo_last_move()
+                self._redraw_board()
+
+    # [NEW] Helper to refresh the screen after undoing
+    def _redraw_board(self):
+        self.screen.blit(self.img_bg, (0, 0))
+        
+        # Re-draw all stones remaining in history
+        # We can reconstruct the board from the grid, or just history
+        for x in range(LEVEL):
+            for y in range(LEVEL):
+                color = self.board.grid[x][y]
+                if color != 0:
+                    stone_img = self.img_black if color == 1 else self.img_white
+                    self.screen.blit(stone_img, self.dot_list[LEVEL * x + y])
+        pygame.display.update()
 
     def _handle_mouse_click(self, pos):
         x, y = pos
@@ -127,15 +178,15 @@ class GomokuGame:
         if not self.board.is_valid(m, n): return
         if not self.board.is_empty(m, n): return
 
-        # Execute Human Move
+        # 玩家落子
         self._execute_move(m, n, self.current_player_color)
         
-        if self.game_over: return
+        if self.game_mode == 'pvp': return
 
-        # Trigger AI if needed
-        if self.game_mode == 'ai' and not self.game_over:
-            pygame.display.update()
-            # sleep(0.1) 
+        # AI 落子
+        if not self.game_over and self.game_mode == 'ai':
+            pygame.display.update() 
+            sleep(0.1)
             self._trigger_ai_move()
 
     def _execute_move(self, m, n, color):
@@ -144,28 +195,32 @@ class GomokuGame:
         self.screen.blit(stone_img, self.dot_list[LEVEL * m + n])
         pygame.display.update()
         
-        # Check Win
         if self.board.check_win(m, n, color):
             self.game_over = True
-            self.winner = color
+            self._show_winner_message(color)
             return
-        
-        # Check Draw
         if self.board.is_full():
             self.game_over = True
-            self.winner = 0
+            self._show_winner_message(0)
             return
-            
-        # Switch Turn
         if self.game_mode == 'pvp':
             self.current_player_color *= -1
 
     def _trigger_ai_move(self):
         ai_color = -1 
+        # [關鍵] 使用 RL AI 的介面
         x, y = self.ai.get_move(self.board.grid, ai_color)
         
         if not (self.board.is_valid(x, y) and self.board.is_empty(x, y)):
-            print("⚠️ AI Error: Invalid move, choosing random spot.")
+            print("AI 發生錯誤，隨機下...")
             x, y = self.ai._find_random_empty(self.board.grid)
         
         self._execute_move(x, y, ai_color)
+
+    def _show_winner_message(self, color):
+        if color == 1: msg, rgb = 'Black Wins!', (0, 0, 0)
+        elif color == -1: msg, rgb = 'White (AI) Wins!', (217, 20, 30)
+        else: msg, rgb = 'Draw!', (100, 100, 100)
+        text = self.font_m.render(msg, True, rgb)
+        self.screen.blit(text, (80, 650))
+        pygame.display.update()
