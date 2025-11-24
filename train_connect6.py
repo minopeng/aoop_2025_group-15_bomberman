@@ -10,7 +10,7 @@ from random import random
 from tqdm import tqdm 
 
 from game_board import GameBoard
-from ai_player import AIPlayer
+from ai_player_connect6 import AIPlayer
 from rl_ai_player import RL_AIPlayer
 
 # --- Settings ---
