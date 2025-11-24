@@ -12,7 +12,6 @@ from game_board import GameBoard
 # [重點] 這裡我們要匯入 RL_AIPlayer (學生)
 from rl_ai_player import RL_AIPlayer   
 from start_menu import StartMenu
-from ai_player import AIPlayer
 
 class GomokuGame:
     def __init__(self):
@@ -67,8 +66,6 @@ class GomokuGame:
                          for i in range(LEVEL) for j in range(LEVEL)]
         self.last_move_x = -1
         self.last_move_y = -1
-        self.hint_pos = None  # Stores (x, y) of the hint
-        self.hint_ai = None   # We will create this when the game starts
 
     def run(self):
         running = True
@@ -83,7 +80,7 @@ class GomokuGame:
 
             self.game_mode = mode
             self.rule_length = length
-            self.hint_ai = AIPlayer(target_length=self.rule_length)
+            
             print(f"Starting Game: {mode.upper()} | Rule: {length}-in-a-row")
 
             # --- Step 2: Start Match ---
@@ -126,10 +123,6 @@ class GomokuGame:
             if event.type == KEYDOWN:
                 if event.key == K_u and not self.game_over: # Press 'U' to Undo
                     self._undo_move()
-                
-                # [FIX] This must be INDENTED inside KEYDOWN
-                if event.key == K_h and not self.game_over:
-                    self._show_hint()
 
             if event.type == MOUSEBUTTONDOWN and not self.game_over:
                 if self.game_mode == 'ai' and self.current_player_color == -1:
@@ -163,28 +156,14 @@ class GomokuGame:
     def _redraw_board(self):
         self.screen.blit(self.img_bg, (0, 0))
         
-        # 1. Draw all stones
+        # Re-draw all stones remaining in history
+        # We can reconstruct the board from the grid, or just history
         for x in range(LEVEL):
             for y in range(LEVEL):
                 color = self.board.grid[x][y]
                 if color != 0:
                     stone_img = self.img_black if color == 1 else self.img_white
                     self.screen.blit(stone_img, self.dot_list[LEVEL * x + y])
-        
-        # 2. [NEW] Draw Hint (if it exists)
-        if self.hint_pos:
-            hx, hy = self.hint_pos
-            # Get the pixel coordinates from your dot_list
-            # Note: dot_list stores (left, top) for images. Center is + width/2
-            px, py = self.dot_list[LEVEL * hx + hy]
-            
-            # Adjust to center (since dot_list is top-left of the image)
-            center_x = int(px + self.img_black.get_width() / 2)
-            center_y = int(py + self.img_black.get_height() / 2)
-            
-            # Draw a transparent-ish red circle (or solid red ring)
-            pygame.draw.circle(self.screen, (255, 0, 0), (center_x, center_y), 10, 3) # Red Ring
-
         pygame.display.update()
 
     def _handle_mouse_click(self, pos):
@@ -207,33 +186,19 @@ class GomokuGame:
             self._trigger_ai_move()
 
     def _execute_move(self, m, n, color):
-        # 1. Clear the hint (if it was visible)
-        self.hint_pos = None
-        
-        # 2. Update the Logical Board
         self.board.place_stone(m, n, color)
+        stone_img = self.img_black if color == 1 else self.img_white
+        self.screen.blit(stone_img, self.dot_list[LEVEL * m + n])
+        pygame.display.update()
         
-        # 3. Redraw the Screen
-        # We MUST redraw everything to remove the "Red Ring" hint if it was there.
-        # This replaces the old single-stone blit.
-        self._redraw_board()
-        
-        # 4. Check Victory Conditions
-        # The board knows if it's 5-row or 6-row based on how you initialized it.
         if self.board.check_win(m, n, color):
             self.game_over = True
-            self.winner = color
             self._show_winner_message(color)
             return
-
         if self.board.is_full():
             self.game_over = True
-            self.winner = 0  # 0 means Draw
             self._show_winner_message(0)
             return
-
-        # 5. Switch Turns (Only for PvP)
-        # In AI mode, the AI triggers its own move separately after this returns.
         if self.game_mode == 'pvp':
             self.current_player_color *= -1
 
@@ -258,18 +223,3 @@ class GomokuGame:
         text = self.font_m.render(msg, True, rgb)
         self.screen.blit(text, (80, 650))
         pygame.display.update()
-
-    # [NEW] Calculate and show the hint
-    def _show_hint(self):
-        print("Thinking of a hint...")
-        
-        # 1. Configure the AI to skip "random openings" and think hard immediately
-        self.hint_ai.ai_move_count = 100 
-        
-        # 2. Ask Teacher for the best move for the CURRENT player
-        # We pass the current board and the current player's color
-        x, y = self.hint_ai.get_move(self.board.grid, -1, -1, self.current_player_color)
-        
-        # 3. Store and Draw
-        self.hint_pos = (x, y)
-        self._redraw_board()
