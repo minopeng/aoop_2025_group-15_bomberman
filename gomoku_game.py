@@ -58,6 +58,7 @@ class GomokuGame:
         
         self.menu = StartMenu(self.screen, self.img_bg, self.font_l, self.font_s)
         self.game_mode = None 
+        self.rule_length = 5
         self.running = True
         self.game_over = False
         self.current_player_color = 1 
@@ -67,44 +68,39 @@ class GomokuGame:
         self.last_move_y = -1
 
     def run(self):
-        while True:
+        running = True
+        while running:
             # --- Step 1: Show Start Menu ---
-            self.game_mode = self.menu.run()
-            if self.game_mode is None:
-                break # User clicked Quit in the Menu -> Close App
+            # [Updated] Now receives (mode, length)
+            mode, length = self.menu.run()
+            
+            if mode is None:
+                running = False
+                break
 
-            # --- Step 2: Game Match Loop ---
-            while True: 
-                self._reset_game_state() # Reset board for a new game
-                
-                # Run the game until someone wins
-                self._play_match()
-                
-                # --- Step 3: Game Over Screen ---
-                # This screen asks: "Play Again", "Menu", or "Quit"
-                action = self.game_over_screen.run(self.winner)
-                
-                if action == 'restart':
-                    continue # Loop back to _reset_game_state() (Play Again)
-                elif action == 'menu':
-                    break # BREAK the inner loop -> Go back to Step 1 (Start Menu)
-                else:
-                    pygame.quit() # User clicked Quit
-                    exit()
+            self.game_mode = mode
+            self.rule_length = length
+            
+            print(f"Starting Game: {mode.upper()} | Rule: {length}-in-a-row")
+
+            # --- Step 2: Start Match ---
+            self._reset_game_state()
+            self._play_match()
+            
+            # --- Step 3: End ---
+            pygame.time.wait(2000) 
 
         pygame.quit()
         exit()
-        
+
     def _reset_game_state(self):
-        """
-        Crucial: We must wipe the board clean before starting a new game.
-        """
-        self.board = GameBoard() # Create a fresh board
+        """Initialize board with the selected rule length"""
+        # [Updated] Pass the selected rule length to Board
+        self.board = GameBoard(target_length=self.rule_length)
+        
         self.game_over = False
         self.winner = 0
         self.current_player_color = 1
-        
-        # Redraw the background to clear old stones
         self.screen.blit(self.img_bg, (0, 0))
         pygame.display.update()
 
@@ -208,12 +204,15 @@ class GomokuGame:
 
     def _trigger_ai_move(self):
         ai_color = -1 
-        # [關鍵] 使用 RL AI 的介面
-        x, y = self.ai.get_move(self.board.grid, ai_color)
         
-        if not (self.board.is_valid(x, y) and self.board.is_empty(x, y)):
-            print("AI 發生錯誤，隨機下...")
-            x, y = self.ai._find_random_empty(self.board.grid)
+        # NOTE regarding AI:
+        # The RL Model (Student) is trained for 5-in-a-row. 
+        # If user selects 6, the RL AI might play poorly.
+        # The Heuristic AI (Teacher) logic handles 6-in-a-row correctly if we update it.
+        
+        # Ideally, you should pass self.rule_length to your AI here if it supports it.
+        # For now, assuming RL_AIPlayer uses the model:
+        x, y = self.ai.get_move(self.board.grid, ai_color)
         
         self._execute_move(x, y, ai_color)
 

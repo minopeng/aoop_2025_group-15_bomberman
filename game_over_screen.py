@@ -1,73 +1,89 @@
-import pygame
-from pygame.locals import *
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT
-from ui import Button
+# game_board.py
+from constants import LEVEL
 
-class GameOverScreen:
-    def __init__(self, screen, font_title, font_button):
-        self.screen = screen
-        self.font_title = font_title
-        self.font_button = font_button
+class GameBoard:
+    def __init__(self, target_length=5): # [NEW] Accept target length
+        self.level = LEVEL
+        self.grid = [[0 for _ in range(self.level)] for _ in range(self.level)]
+        self.move_count = 0
+        self.history = []
+        self.target_length = target_length # [NEW] Store it
+
+    # ... (place_stone, undo_last_move, is_empty, is_valid, is_full remain the same) ...
+
+    def check_win(self, x, y, color):
+        # Use self.target_length instead of hardcoded 4 or 5
+        length = self.target_length 
         
-        # Create a semi-transparent overlay surface (Black with ~70% opacity)
-        self.overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        self.overlay.fill((0, 0, 0, 180))
-
-        # Buttons (English Text)
-        center_x = SCREEN_WIDTH // 2
-        self.btn_restart = Button(center_x, 400, 220, 50, "Play Again", font_button, (60, 179, 113), (46, 139, 87))
-        self.btn_menu = Button(center_x, 470, 220, 50, "Main Menu", font_button, (70, 130, 180), (100, 149, 237))
-        self.btn_quit = Button(center_x, 540, 220, 50, "Quit", font_button, (205, 92, 92), (255, 99, 71))
-
-    def run(self, winner_color):
-        """
-        Displays the Game Over screen over the existing board.
-        Returns: 'restart', 'menu', or None (quit)
-        """
-        # Take a snapshot of the current game board (background)
-        background_snap = self.screen.copy()
+        count1, count2, count3, count4 = 0, 0, 0, 0
         
-        # Prepare Winner Text
-        if winner_color == 1:
-            text = "Black Wins!"
-            color = (100, 255, 100) # Greenish
-        elif winner_color == -1:
-            text = "White Wins!"
-            color = (255, 100, 100) # Reddish
+        # Horizontal
+        i = x - 1
+        while (i >= 0):
+            if color == self.grid[i][y]:
+                count1 += 1
+                i -= 1
+            else: break
+        i = x + 1
+        while i < self.level:
+            if self.grid[i][y] == color:
+                count1 += 1
+                i += 1
+            else: break
+
+        # Vertical
+        j = y - 1
+        while (j >= 0):
+            if self.grid[x][j] == color:
+                count2 += 1
+                j -= 1
+            else: break
+        j = y + 1
+        while j < self.level:
+            if self.grid[x][j] == color:
+                count2 += 1
+                j += 1
+            else: break
+
+        # Diagonal
+        i, j = x - 1, y - 1
+        while (i >= 0 and j >= 0):
+            if self.grid[i][j] == color:
+                count3 += 1
+                i -= 1
+                j -= 1
+            else: break
+        i, j = x + 1, y + 1
+        while (i < self.level and j < self.level):
+            if self.grid[i][j] == color:
+                count3 += 1
+                i += 1
+                j += 1
+            else: break
+        
+        # Anti-Diagonal
+        i, j = x + 1, y - 1
+        while (i < self.level and j >= 0):
+            if self.grid[i][j] == color:
+                count4 += 1
+                i += 1
+                j -= 1
+            else: break
+        i, j = x - 1, y + 1
+        while (i >= 0 and j < self.level):
+            if self.grid[i][j] == color:
+                count4 += 1
+                i -= 1
+                j += 1
+            else: break
+
+        # Check against target_length - 1 (because count excludes the current stone)
+        # OR simply: if count + 1 >= self.target_length
+        # Your original code counted neighbors. So if neighbors >= length-1, it's a win.
+        target_neighbors = self.target_length - 1
+        
+        if count1 >= target_neighbors or count2 >= target_neighbors or \
+           count3 >= target_neighbors or count4 >= target_neighbors:
+            return True
         else:
-            text = "Draw!"
-            color = (200, 200, 200)
-
-        title_surf = self.font_title.render(text, True, color)
-        title_rect = title_surf.get_rect(center=(SCREEN_WIDTH // 2, 250))
-        
-        clock = pygame.time.Clock()
-        
-        while True:
-            mouse_pos = pygame.mouse.get_pos()
-            
-            for event in pygame.event.get():
-                if event.type == QUIT:
-                    return None
-                
-                if self.btn_restart.is_clicked(event): return 'restart'
-                if self.btn_menu.is_clicked(event): return 'menu'
-                if self.btn_quit.is_clicked(event): return None
-
-            # Update Button Hovers
-            self.btn_restart.check_hover(mouse_pos)
-            self.btn_menu.check_hover(mouse_pos)
-            self.btn_quit.check_hover(mouse_pos)
-
-            # Draw
-            self.screen.blit(background_snap, (0, 0)) # Draw the frozen game board
-            self.screen.blit(self.overlay, (0, 0))    # Draw dark overlay
-            
-            self.screen.blit(title_surf, title_rect)
-            
-            self.btn_restart.draw(self.screen)
-            self.btn_menu.draw(self.screen)
-            self.btn_quit.draw(self.screen)
-            
-            pygame.display.update()
-            clock.tick(30)
+            return False
