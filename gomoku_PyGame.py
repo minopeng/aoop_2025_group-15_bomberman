@@ -1,275 +1,319 @@
-# gomoku_game.py
-# 測試模式：載入訓練好的 RL 模型
+#-*-coding:utf-8-*-
+#date:2018/12/11
 
+from time import sleep
 import pygame
 from pygame.locals import *
-from time import sleep
-import os
+from random import randint
 
-# 匯入模組
-from constants import *
-from game_board import GameBoard
-# [重點] 這裡我們要匯入 RL_AIPlayer (學生)
-from rl_ai_player import RL_AIPlayer   
-from start_menu import StartMenu
-from ai_player import AIPlayer
+level = 15
+grade = 10
+MAX = 1008611
+def Scan(chesspad, color):
+    shape = [[[0 for high in range(5)] for col in range(15)] for row in range(15)]
+    # 扫描每一个点，然后在空白的点每一个方向上做出价值评估！！
+    for i in range(15):
+        for j in range(15):
 
-class GomokuGame:
+            # 如果此处为空 那么就可以开始扫描周边
+            if chesspad[i][j] == 0:
+                m = i
+                n = j
+                # 如果上方跟当前传入的颜色参数一致，那么加分到0位！
+                while n - 1 >= 0 and chesspad[m][n - 1] == color:
+                    n -= 1
+                    shape[i][j][0] += grade
+                if n-1>=0 and chesspad[m][n - 1] == 0:
+                    shape[i][j][0] += 1
+                if n-1 >= 0 and chesspad[m][n - 1] == -color:
+                    shape[i][j][0] -= 2
+                m = i
+                n = j
+                # 如果下方跟当前传入的颜色参数一致，那么加分到0位！
+                while (n + 1 < level  and chesspad[m][n + 1] == color):
+                    n += 1
+                    shape[i][j][0] += grade
+                if n + 1 < level  and chesspad[m][n + 1] == 0:
+                    shape[i][j][0] += 1
+                if n + 1 < level  and chesspad[m][n + 1] == -color:
+                    shape[i][j][0] -= 2
+                m = i
+                n = j
+                # 如果左边跟当前传入的颜色参数一致，那么加分到1位！
+                while (m - 1 >= 0 and chesspad[m - 1][n] == color):
+                    m -= 1
+                    shape[i][j][1] += grade
+                if m - 1 >= 0 and chesspad[m - 1][n] == 0:
+                    shape[i][j][1] += 1
+                if m - 1 >= 0 and chesspad[m - 1][n] == -color:
+                    shape[i][j][1] -= 2
+                m = i
+                n = j
+                # 如果右边跟当前传入的颜色参数一致，那么加分到1位！
+                while (m + 1 < level  and chesspad[m + 1][n] == color):
+                    m += 1
+                    shape[i][j][1] += grade
+                if m + 1 < level  and chesspad[m + 1][n] == 0:
+                    shape[i][j][1] += 1
+                if m + 1 < level  and chesspad[m + 1][n] == -color:
+                    shape[i][j][1] -= 2
+                m = i
+                n = j
+                # 如果左下方跟当前传入的颜色参数一致，那么加分到2位！
+                while (m - 1 >= 0 and n + 1 < level  and chesspad[m - 1][n + 1] == color):
+                    m -= 1
+                    n += 1
+                    shape[i][j][2] += grade
+                if m - 1 >= 0 and n + 1 < level  and chesspad[m - 1][n + 1] == 0:
+                    shape[i][j][2] += 1
+                if m - 1 >= 0 and n + 1 < level  and chesspad[m - 1][n + 1] == -color:
+                    shape[i][j][2] -= 2
+                m = i
+                n = j
+                # 如果右上方跟当前传入的颜色参数一致，那么加分到2位！
+                while (m + 1 < level  and n - 1 >= 0 and chesspad[m + 1][n - 1] == color):
+                    m += 1
+                    n -= 1
+                    shape[i][j][2] += grade
+                if m + 1 < level  and n - 1 >= 0 and chesspad[m + 1][n - 1] == 0:
+                    shape[i][j][2] += 1
+                if m + 1 < level  and n - 1 >= 0 and chesspad[m + 1][n - 1] == -color:
+                    shape[i][j][2] -= 2
+                m = i
+                n = j
+                # 如果左上方跟当前传入的颜色参数一致，那么加分到3位！
+                while (m - 1 >= 0 and n - 1 >= 0 and chesspad[m - 1][n - 1] == color):
+                    m -= 1
+                    n -= 1 
+                    shape[i][j][3] += grade
+                if m - 1 >= 0 and n - 1 >= 0 and chesspad[m - 1][n - 1] == 0:
+                    shape[i][j][3] += 1
+                if m - 1 >= 0 and n - 1 >= 0 and chesspad[m - 1][n - 1] == -color:
+                    shape[i][j][3] -= 2
+                m = i
+                n = j
+                # 如果右下方跟当前传入的颜色参数一致，那么加分到3位！
+                while m + 1 < level  and n + 1 < level  and chesspad[m + 1][n + 1] == color:
+                    m += 1
+                    n += 1
+                    shape[i][j][3] += grade
+                if m + 1 < level  and n + 1 < level  and chesspad[m + 1][n + 1] == 0:
+                    shape[i][j][3] += 1
+                if m + 1 < level  and n + 1 < level  and chesspad[m + 1][n + 1] == -color:
+                    shape[i][j][3] -= 2
+    return shape
+
+
+def Sort(shape):
+    for i in shape:
+        for j in i:
+            for x in range(5):
+                for w in range(3, x - 1, -1):
+                    if j[w - 1] < j[w]:
+                        temp = j[w]
+                        j[w - 1] = j[w]
+                        j[w] = temp
+    print("This Time Sort Done !")
+    return shape
+
+
+def Evaluate(shape):
+    for i in range(level):
+        for j in range(level):
+
+            if shape[i][j][0] == 4:
+                return i, j, MAX
+            shape[i][j][4] = shape[i][j][0]*1000 + shape[i][j][1]*100 + shape[i][j][2]*10 + shape[i][j][3]
+    max_x = 0
+    max_y = 0
+    max = 0
+    for i in range(15):
+        for j in range(15):
+            if max < shape[i][j][4]:
+                max = shape[i][j][4]
+                max_x = i
+                max_y = j
+    print("the max is "+ str(max) + " at ( "+ str(max_x)+" , "+str(max_y)+" )")
+    return max_x, max_y, max
+
+
+class chess(object):
     def __init__(self):
-        pygame.init()
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
-        pygame.display.set_caption("五子棋 RL AI 驗收測試")
-        
-        self.font_m = pygame.font.SysFont("黑体", 40)
-        self.font_l = pygame.font.SysFont("黑体", 60)
-        self.font_s = pygame.font.SysFont("黑体", 30)
-        
-        try:
-            self.img_bg = pygame.image.load('./Res/bg.png').convert()
-            img_white = pygame.image.load('./Res/white.png').convert_alpha()
-            img_black = pygame.image.load('./Res/black.png').convert_alpha()
-            self.img_white = pygame.transform.smoothscale(img_white, (int(img_white.get_width() * 1.5), int(img_white.get_height() * 1.5)))
-            self.img_black = pygame.transform.smoothscale(img_black, (int(img_black.get_width() * 1.5), int(img_black.get_height() * 1.5)))
-        except pygame.error as e:
-            print(f"錯誤: 找不到圖片資源 - {e}")
-            exit()
+        self.a = [[0 for high in range(15)] for col in range(15)] 
 
-        self.board = GameBoard()
-        
-        # ----------------------------------------------------
-        # [關鍵設定] 指定你要測試的模型檔案
-        # 剛跑完訓練通常是存成這個名字：
-        MODEL_FILE_TO_TEST = "models/gomoku_rl_model_final.keras"
-        
-        print(f"--- 正在載入 AI 模型: {MODEL_FILE_TO_TEST} ---")
-        
-        if not os.path.exists(MODEL_FILE_TO_TEST):
-            print(f"❌ 錯誤：找不到模型檔案！請確認 train.py 是否跑完並存檔。")
-            print(f"搜尋路徑: {MODEL_FILE_TO_TEST}")
-            exit()
-            
-        try:
-            # 載入模型
-            self.ai = RL_AIPlayer(model_path=MODEL_FILE_TO_TEST)
-            print("✅ 模型載入成功！準備開戰！")
-        except Exception as e:
-            print(f"❌ 模型載入失敗: {e}")
-            exit()
-        # ----------------------------------------------------
-        
-        self.menu = StartMenu(self.screen, self.img_bg, self.font_l, self.font_s)
-        self.game_mode = None 
-        self.rule_length = 5
-        self.running = True
-        self.game_over = False
-        self.current_player_color = 1 
-        self.dot_list = [(25 + i * 50 - self.img_white.get_width() / 2, 25 + j * 50 - self.img_white.get_height() / 2) 
-                         for i in range(LEVEL) for j in range(LEVEL)]
-        self.last_move_x = -1
-        self.last_move_y = -1
-        self.hint_pos = None  # Stores (x, y) of the hint
-        self.hint_ai = None   # We will create this when the game starts
+    def fall(self, x, y, color):
+        if (x < 0 or x > level - 1 or y < 0 or y > level - 1):
+            return
+        self.a[x][y] = color
+        if Judge(x, y, color, self.a, 4):
+            if color < 0:
+                print("The Winner is White!!")
+            else:
+                print("The Winner is Black!!")
 
-    def run(self):
-        running = True
-        while running:
-            # --- Step 1: Show Start Menu ---
-            # [Updated] Now receives (mode, length)
-            mode, length = self.menu.run()
-            
-            if mode is None:
-                running = False
-                break
+    def isEmpty(self, m, n):
+        if self.a[m][n] != 0:
+            return False
+        else:
+            return True
 
-            self.game_mode = mode
-            self.rule_length = length
-            self.hint_ai = AIPlayer(target_length=self.rule_length)
-            print(f"Starting Game: {mode.upper()} | Rule: {length}-in-a-row")
 
-            # --- Step 2: Start Match ---
-            self._reset_game_state()
-            self._play_match()
-            
-            # --- Step 3: End ---
-            pygame.time.wait(2000) 
+def Judge(x, y, color, CHESSLOCATION, length):
+    count1, count2, count3, count4 = 0, 0, 0, 0
+    # 横向判断
+    i = x - 1
+    while (i >= 0):
+        if color == CHESSLOCATION[i][y]:
+            count1 += 1
+            i -= 1
+        else:
+            break
+    i = x + 1
+    while i < level:
+        if CHESSLOCATION[i][y] == color:
+            count1 += 1
+            i += 1
+        else:
+            break
 
-        pygame.quit()
-        exit()
+    # 纵向判断
+    j = y - 1
+    while (j >= 0):
+        if CHESSLOCATION[x][j] == color:
+            count2 += 1
+            j -= 1
+        else:
+            break
+    j = y + 1
+    while j < level:
+        if CHESSLOCATION[x][j] == color:
+            count2 += 1
+            j += 1
+        else:
+            break
 
-    def _reset_game_state(self):
-        """Initialize board with the selected rule length"""
-        # [Updated] Pass the selected rule length to Board
-        self.board = GameBoard(target_length=self.rule_length)
-        
-        self.game_over = False
-        self.winner = 0
-        self.current_player_color = 1
-        self.screen.blit(self.img_bg, (0, 0))
-        pygame.display.update()
+    # 正对角线判断
+    i, j = x - 1, y - 1
+    while (i >= 0 and j >= 0):
+        if CHESSLOCATION[i][j] == color:
+            count3 += 1
+            i -= 1
+            j -= 1
+        else:
+            break
+    i, j = x + 1, y + 1
+    while (i < level and j < level):
+        if CHESSLOCATION[i][j] == color:
+            count3 += 1
+            i += 1
+            j += 1
+        else:
+            break
+    # 反对角线判断
+    i, j = x + 1, y - 1
+    while (i < level and j >= 0):
+        if CHESSLOCATION[i][j] == color:
+            count4 += 1
+            i += 1
+            j -= 1
+        else:
+            break
+    i, j = x - 1, y + 1
+    while (i > 0 and j < level):
+        if CHESSLOCATION[i][j] == color:
+            count4 += 1
+            i -= 1
+            j += 1
+        else:
+            break
 
-    def _play_match(self):
-        """Blocks here running the game until self.game_over becomes True"""
-        while not self.game_over:
-            self._handle_events()
-            # (The rest of your game logic happens inside _handle_events -> _execute_move)
-            
-            # CPU optimization
-            if self.game_mode == 'ai' and self.current_player_color == -1:
-                pass
-    def _handle_events(self):
+    if count1 >= length or count2 >= length or count3 >= length or count4 >= length:
+        return True
+    else:
+        return False
+
+
+def Autoplay(ch, m, n):
+    a1 = [1,-1,1,-1,1,-1,0,0]
+    b1 = [1,-1,-1,1,0,0,1,-1]
+    rand = randint(0,7)
+    while m+a1[rand]>=0 and m+a1[rand]<level and n+b1[rand]>=0 and n+b1[rand]<level and ch[m+a1[rand]][n+b1[rand]]!=0 :
+        rand = randint(0,7)
+    return m + a1[rand], n+b1[rand]
+
+def BetaGo(ch, m, n, color, times):
+    if times < 2:
+        return Autoplay(ch, m, n)
+    else:
+        shape_P = Scan(ch, -color)
+        shape_C = Scan(ch,color)
+        shape_P = Sort(shape_P)
+        shape_C = Sort(shape_C)
+        max_x_P, max_y_P, max_P = Evaluate(shape_P)
+        max_x_C, max_y_C, max_C = Evaluate(shape_C)
+        if max_P>max_C and max_C<MAX:
+            return max_x_P,max_y_P
+        else:
+            return max_x_C,max_y_C
+
+
+def satrtGUI(ch):
+    pygame.init()
+    bg = './Res/bg.png'
+    white_image = './Res/white.png'
+    black_image = './Res/black.png'
+
+    screen = pygame.display.set_mode((750, 750), 0, 32)
+    background = pygame.image.load(bg).convert()
+    white = pygame.image.load(white_image).convert_alpha()
+    black = pygame.image.load(black_image).convert_alpha()
+    white = pygame.transform.smoothscale(white, (int(white.get_width() * 1.5), int(white.get_height() * 1.5)))
+    black = pygame.transform.smoothscale(black, (int(black.get_width() * 1.5), int(black.get_height() * 1.5)))
+
+    screen.blit(background, (0, 0))
+    font = pygame.font.SysFont("黑体", 40)
+
+    pygame.event.set_blocked([1, 4, KEYUP, JOYAXISMOTION, JOYBALLMOTION, JOYBUTTONDOWN, JOYBUTTONUP, JOYHATMOTION])
+    pygame.event.set_allowed([MOUSEBUTTONDOWN, MOUSEBUTTONUP, 12, KEYDOWN])
+
+    dot_list = [(25 + i * 50 - white.get_width() / 2, 25 + j * 50 - white.get_height() / 2) for i in range(level) for
+                j in range(level)]
+    color = -1
+    times = 0
+    flag = False
+    while not flag:
         for event in pygame.event.get():
-            if event.type == QUIT: 
-                pygame.quit()
+            if event.type == QUIT:
                 exit()
-            
-            # [NEW] Handle Keyboard Input
-            if event.type == KEYDOWN:
-                if event.key == K_u and not self.game_over: # Press 'U' to Undo
-                    self._undo_move()
-                
-                # [FIX] This must be INDENTED inside KEYDOWN
-                if event.key == K_h and not self.game_over:
-                    self._show_hint()
+            elif event.type == MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                if 25 <= x <= 725 and 25 <= y <= 725 and ((x - 25) % 50 <= level or (x - 25) % 50 >= 0) and (
+                        (y - 25) % 50 <= level or (y - 25) % 50 >= 0):
+                    color = -1 * color
+                    m = int(round((x - 25) / 50))
+                    n = int(round((y - 25) / 50))
+                    if not ch.isEmpty(m, n):
+                        print("Black OverWrite~~")
+                        continue
+                    ch.fall(m, n, color)
+                    screen.blit(black, dot_list[level * m + n])
+                    if Judge(m, n, color, ch.a, 4):
+                        screen.blit(font.render('GAME OVER,Black is win!', True, (110, 210, 30)), (80, 650))
+                        break
 
-            if event.type == MOUSEBUTTONDOWN and not self.game_over:
-                if self.game_mode == 'ai' and self.current_player_color == -1:
-                    continue 
-                self._handle_mouse_click(event.pos)
-
-    # [NEW] Add this logic function
-    def _undo_move(self):
-        """Handles the logic for undoing moves."""
-        print("Undo requested...")
-        
-        if self.game_mode == 'pvp':
-            # In PvP, undo 1 move and switch turn back
-            if self.board.undo_last_move():
-                self.current_player_color *= -1
-                self._redraw_board()
-                
-        elif self.game_mode == 'ai':
-            # In AI mode, we must undo TWO moves (AI's and Player's)
-            # to let the player try again.
-            if len(self.board.history) >= 2:
-                self.board.undo_last_move() # Undo AI
-                self.board.undo_last_move() # Undo Player
-                self._redraw_board()
-            elif len(self.board.history) == 1:
-                # Rare case: Player moved, AI crashed/didn't move yet
-                self.board.undo_last_move()
-                self._redraw_board()
-
-    # [NEW] Helper to refresh the screen after undoing
-    def _redraw_board(self):
-        self.screen.blit(self.img_bg, (0, 0))
-        
-        # 1. Draw all stones
-        for x in range(LEVEL):
-            for y in range(LEVEL):
-                color = self.board.grid[x][y]
-                if color != 0:
-                    stone_img = self.img_black if color == 1 else self.img_white
-                    self.screen.blit(stone_img, self.dot_list[LEVEL * x + y])
-        
-        # 2. [NEW] Draw Hint (if it exists)
-        if self.hint_pos:
-            hx, hy = self.hint_pos
-            # Get the pixel coordinates from your dot_list
-            # Note: dot_list stores (left, top) for images. Center is + width/2
-            px, py = self.dot_list[LEVEL * hx + hy]
-            
-            # Adjust to center (since dot_list is top-left of the image)
-            center_x = int(px + self.img_black.get_width() / 2)
-            center_y = int(py + self.img_black.get_height() / 2)
-            
-            # Draw a transparent-ish red circle (or solid red ring)
-            pygame.draw.circle(self.screen, (255, 0, 0), (center_x, center_y), 10, 3) # Red Ring
-
+                    color = -1 * color
+                    sleep(0.1)
+                    x, y = BetaGo(ch.a, m, n, color, times)
+                    times += 1
+                    print("Predict:" + str(x) + " and " + str(y))
+                    ch.fall(x, y, color)
+                    screen.blit(white, dot_list[level * x + y])
+                    if Judge(x, y, color, ch.a, 4):
+                        screen.blit(font.render('GAME OVER,White is win!', True, (217, 20, 30)), (80, 650))
+                        break
         pygame.display.update()
+        if flag:
+            sleep(5)
 
-    def _handle_mouse_click(self, pos):
-        x, y = pos
-        if not (25 <= x <= 725 and 25 <= y <= 725): return
-        m = int(round((x - 25) / 50))
-        n = int(round((y - 25) / 50))
-        if not self.board.is_valid(m, n): return
-        if not self.board.is_empty(m, n): return
-
-        # 玩家落子
-        self._execute_move(m, n, self.current_player_color)
-        
-        if self.game_mode == 'pvp': return
-
-        # AI 落子
-        if not self.game_over and self.game_mode == 'ai':
-            pygame.display.update() 
-            sleep(0.1)
-            self._trigger_ai_move()
-
-    def _execute_move(self, m, n, color):
-        # 1. Clear the hint (if it was visible)
-        self.hint_pos = None
-        
-        # 2. Update the Logical Board
-        self.board.place_stone(m, n, color)
-        
-        # 3. Redraw the Screen
-        # We MUST redraw everything to remove the "Red Ring" hint if it was there.
-        # This replaces the old single-stone blit.
-        self._redraw_board()
-        
-        # 4. Check Victory Conditions
-        # The board knows if it's 5-row or 6-row based on how you initialized it.
-        if self.board.check_win(m, n, color):
-            self.game_over = True
-            self.winner = color
-            self._show_winner_message(color)
-            return
-
-        if self.board.is_full():
-            self.game_over = True
-            self.winner = 0  # 0 means Draw
-            self._show_winner_message(0)
-            return
-
-        # 5. Switch Turns (Only for PvP)
-        # In AI mode, the AI triggers its own move separately after this returns.
-        if self.game_mode == 'pvp':
-            self.current_player_color *= -1
-
-    def _trigger_ai_move(self):
-        ai_color = -1 
-        
-        # NOTE regarding AI:
-        # The RL Model (Student) is trained for 5-in-a-row. 
-        # If user selects 6, the RL AI might play poorly.
-        # The Heuristic AI (Teacher) logic handles 6-in-a-row correctly if we update it.
-        
-        # Ideally, you should pass self.rule_length to your AI here if it supports it.
-        # For now, assuming RL_AIPlayer uses the model:
-        x, y = self.ai.get_move(self.board.grid, ai_color)
-        
-        self._execute_move(x, y, ai_color)
-
-    def _show_winner_message(self, color):
-        if color == 1: msg, rgb = 'Black Wins!', (0, 0, 0)
-        elif color == -1: msg, rgb = 'White (AI) Wins!', (217, 20, 30)
-        else: msg, rgb = 'Draw!', (100, 100, 100)
-        text = self.font_m.render(msg, True, rgb)
-        self.screen.blit(text, (80, 650))
-        pygame.display.update()
-
-    # [NEW] Calculate and show the hint
-    def _show_hint(self):
-        print("Thinking of a hint...")
-        
-        # 1. Configure the AI to skip "random openings" and think hard immediately
-        self.hint_ai.ai_move_count = 100 
-        
-        # 2. Ask Teacher for the best move for the CURRENT player
-        # We pass the current board and the current player's color
-        x, y = self.hint_ai.get_move(self.board.grid, -1, -1, self.current_player_color)
-        
-        # 3. Store and Draw
-        self.hint_pos = (x, y)
-        self._redraw_board()
+now = chess()
+satrtGUI(now)
