@@ -1,15 +1,12 @@
-# gomoku_game.py
-# 測試模式：載入訓練好的 RL 模型
-
 import pygame
 from pygame.locals import *
 from time import sleep
 import os
+import sys
 
-# 匯入模組
+# --- Custom Module Imports ---
 from constants import *
 from game_board import GameBoard
-# [重點] 這裡我們要匯入 RL_AIPlayer (學生)
 from rl_ai_player import RL_AIPlayer   
 from start_menu import StartMenu
 from ai_player import AIPlayer
@@ -18,116 +15,205 @@ class GomokuGame:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
-        pygame.display.set_caption("五子棋 RL AI 驗收測試")
+        pygame.display.set_caption("Board Game AI Arena")
         
-        self.font_m = pygame.font.SysFont("黑体", 40)
-        self.font_l = pygame.font.SysFont("黑体", 60)
-        self.font_s = pygame.font.SysFont("黑体", 30)
+        # --- Fonts ---
+        self.font_m = pygame.font.SysFont("黑体", 40) # Medium
+        self.font_l = pygame.font.SysFont("黑体", 60) # Large
+        self.font_s = pygame.font.SysFont("黑体", 30) # Small
         
+        # --- Load Resources ---
         try:
             self.img_bg = pygame.image.load('./Res/bg.png').convert()
             img_white = pygame.image.load('./Res/white.png').convert_alpha()
             img_black = pygame.image.load('./Res/black.png').convert_alpha()
+            
+            # Scale stones to fit grid
             self.img_white = pygame.transform.smoothscale(img_white, (int(img_white.get_width() * 1.5), int(img_white.get_height() * 1.5)))
             self.img_black = pygame.transform.smoothscale(img_black, (int(img_black.get_width() * 1.5), int(img_black.get_height() * 1.5)))
         except pygame.error as e:
-            print(f"錯誤: 找不到圖片資源 - {e}")
-            exit()
+            print(f"❌ Error: Missing resources - {e}")
+            sys.exit()
 
         self.board = GameBoard()
-        
-        # ----------------------------------------------------
-        # [關鍵設定] 指定你要測試的模型檔案
-        # 剛跑完訓練通常是存成這個名字：
-        MODEL_FILE_TO_TEST = "models/gomoku_rl_model_final.keras"
-        
-        print(f"--- 正在載入 AI 模型: {MODEL_FILE_TO_TEST} ---")
-        
-        if not os.path.exists(MODEL_FILE_TO_TEST):
-            print(f"❌ 錯誤：找不到模型檔案！請確認 train.py 是否跑完並存檔。")
-            print(f"搜尋路徑: {MODEL_FILE_TO_TEST}")
-            exit()
-            
-        try:
-            # 載入模型
-            self.ai = RL_AIPlayer(model_path=MODEL_FILE_TO_TEST)
-            print("✅ 模型載入成功！準備開戰！")
-        except Exception as e:
-            print(f"❌ 模型載入失敗: {e}")
-            exit()
-        # ----------------------------------------------------
-        
         self.menu = StartMenu(self.screen, self.img_bg, self.font_l, self.font_s)
+        self.ai = None
+        self.hint_ai = None
+        
         self.game_mode = None 
         self.rule_length = 5
         self.running = True
         self.game_over = False
-        self.current_player_color = 1 
+        self.force_quit_to_menu = False 
+        self.winner = 0
+        self.current_player_color = 1
+        
+        # Pre-calculate screen coordinates for stones
         self.dot_list = [(25 + i * 50 - self.img_white.get_width() / 2, 25 + j * 50 - self.img_white.get_height() / 2) 
                          for i in range(LEVEL) for j in range(LEVEL)]
-        self.last_move_x = -1
-        self.last_move_y = -1
-        self.hint_pos = None  # Stores (x, y) of the hint
-        self.hint_ai = None   # We will create this when the game starts
+        
+        self.hint_pos = None
 
     def run(self):
-        running = True
-        while running:
-            # --- Step 1: Show Start Menu ---
-            # [Updated] Now receives (mode, length)
+        """Main Application Loop"""
+        while self.running:
+            # 1. Show Menu
             mode, length = self.menu.run()
             
             if mode is None:
-                running = False
+                self.running = False
                 break
 
             self.game_mode = mode
             self.rule_length = length
+            
+            # 2. Configure AI
+            if mode == 'ai':
+                self._load_ai_model(length)
+                
             self.hint_ai = AIPlayer(target_length=self.rule_length)
-            print(f"Starting Game: {mode.upper()} | Rule: {length}-in-a-row")
+            
+            print(f"\n--- 🎮 Starting Game: {mode.upper()} | Target: {length} ---")
 
-            # --- Step 2: Start Match ---
+            # 3. Start Match
             self._reset_game_state()
             self._play_match()
             
-            # --- Step 3: End ---
-            pygame.time.wait(2000) 
+            # If user pressed R during game, skip the "Game Over" wait
+            if self.force_quit_to_menu:
+                print("↩️  Returned to Menu (User Quit)")
+                continue
+
+            # 4. Game Over Screen (Wait for R to return)
+            if self.running: 
+                self._wait_for_menu_input()
 
         pygame.quit()
-        exit()
+        sys.exit()
+
+    def _wait_for_menu_input(self):
+        """Displays Game Over overlay and waits for 'R'."""
+        print("Game Over. Waiting for 'R'...")
+        
+        # --- 1. Determine Texts ---
+        if self.winner == 1:
+            win_text = "Black Win the game"
+            win_color = (50, 200, 50) # Green
+        elif self.winner == -1:
+            win_text = "White (AI) Win the game"
+            win_color = (220, 50, 50) # Red
+        else:
+            win_text = "Draw Game"
+            win_color = (200, 200, 200) # Grey
+
+        # [CHANGE] Updated text from 'Q' to 'R'
+        prompt_text = "Press 'R' to return to Menu"
+        prompt_color = (255, 255, 255)
+
+        # --- 2. Render Text Surfaces ---
+        surf_win = self.font_m.render(win_text, True, win_color)
+        surf_prompt = self.font_s.render(prompt_text, True, prompt_color)
+        
+        # --- 3. Create Background Box (Symmetric Padding) ---
+        vertical_padding = 25  # Space above top line and below bottom line
+        
+        total_text_height = surf_win.get_height() + surf_prompt.get_height()
+        
+        w = max(surf_win.get_width(), surf_prompt.get_width()) + 80
+        h = total_text_height + (vertical_padding * 2)
+        
+        overlay = pygame.Surface((w, h))
+        overlay.fill((40, 40, 40))  # Dark Grey Background
+        overlay.set_alpha(230)      # Slightly transparent
+        
+        # Position Overlay Center
+        center_x = SCREEN_WIDTH // 2
+        center_y = SCREEN_HEIGHT // 2
+        overlay_rect = overlay.get_rect(center=(center_x, center_y))
+        
+        # --- 4. Loop ---
+        waiting = True
+        while waiting:
+            pygame.time.Clock().tick(30)
+            
+            # Draw overlay
+            self.screen.blit(overlay, overlay_rect)
+            
+            # Draw texts centered in the box
+            # Line 1 Top = Box Top + Padding
+            win_rect = surf_win.get_rect(midtop=(center_x, overlay_rect.top + vertical_padding))
+            
+            # Line 2 Top = Line 1 Bottom (No gap between lines)
+            prompt_rect = surf_prompt.get_rect(midtop=(center_x, win_rect.bottom))
+            
+            self.screen.blit(surf_win, win_rect)
+            self.screen.blit(surf_prompt, prompt_rect)
+            
+            pygame.display.update()
+            
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    self.running = False
+                    waiting = False
+                    return
+                # [CHANGE] Listen for 'R' instead of 'Q'
+                if event.type == KEYDOWN and event.key == K_r:
+                    waiting = False
+                    return
+
+    def _load_ai_model(self, length):
+        """Switches AI model based on rule."""
+        model_path = ""
+        if length == 4:
+            model_path = "models/connect4_graduation.keras"
+        elif length == 5:
+            model_path = "models/gomoku_rl_model_final.keras"
+        elif length == 6:
+             model_path = "models/connect6_rl_model_latest.keras"
+
+        print(f"🧠 Loading AI for Rule {length}: {model_path}")
+        if os.path.exists(model_path):
+            try:
+                self.ai = RL_AIPlayer(model_path=model_path)
+                print("✅ AI Loaded Successfully!")
+            except Exception as e:
+                print(f"❌ Error: {e}")
+                self.ai = RL_AIPlayer()
+        else:
+            print(f"⚠️ Not found: {model_path}")
+            self.ai = RL_AIPlayer() 
 
     def _reset_game_state(self):
-        """Initialize board with the selected rule length"""
-        # [Updated] Pass the selected rule length to Board
         self.board = GameBoard(target_length=self.rule_length)
-        
         self.game_over = False
+        self.force_quit_to_menu = False 
         self.winner = 0
-        self.current_player_color = 1
+        self.current_player_color = 1 
+        self.hint_pos = None
+        
         self.screen.blit(self.img_bg, (0, 0))
         pygame.display.update()
 
     def _play_match(self):
-        """Blocks here running the game until self.game_over becomes True"""
         while not self.game_over:
             self._handle_events()
-            # (The rest of your game logic happens inside _handle_events -> _execute_move)
-            
-            # CPU optimization
             if self.game_mode == 'ai' and self.current_player_color == -1:
                 pass
+    
     def _handle_events(self):
         for event in pygame.event.get():
             if event.type == QUIT: 
                 pygame.quit()
-                exit()
+                sys.exit()
             
-            # [NEW] Handle Keyboard Input
             if event.type == KEYDOWN:
-                if event.key == K_u and not self.game_over: # Press 'U' to Undo
+                if event.key == K_r:
+                    self.force_quit_to_menu = True
+                    self.game_over = True
+                    return
+
+                if event.key == K_u and not self.game_over:
                     self._undo_move()
-                
-                # [FIX] This must be INDENTED inside KEYDOWN
                 if event.key == K_h and not self.game_over:
                     self._show_hint()
 
@@ -136,34 +222,23 @@ class GomokuGame:
                     continue 
                 self._handle_mouse_click(event.pos)
 
-    # [NEW] Add this logic function
     def _undo_move(self):
-        """Handles the logic for undoing moves."""
         print("Undo requested...")
-        
         if self.game_mode == 'pvp':
-            # In PvP, undo 1 move and switch turn back
             if self.board.undo_last_move():
                 self.current_player_color *= -1
                 self._redraw_board()
-                
         elif self.game_mode == 'ai':
-            # In AI mode, we must undo TWO moves (AI's and Player's)
-            # to let the player try again.
             if len(self.board.history) >= 2:
-                self.board.undo_last_move() # Undo AI
-                self.board.undo_last_move() # Undo Player
+                self.board.undo_last_move() 
+                self.board.undo_last_move() 
                 self._redraw_board()
             elif len(self.board.history) == 1:
-                # Rare case: Player moved, AI crashed/didn't move yet
                 self.board.undo_last_move()
                 self._redraw_board()
 
-    # [NEW] Helper to refresh the screen after undoing
     def _redraw_board(self):
         self.screen.blit(self.img_bg, (0, 0))
-        
-        # 1. Draw all stones
         for x in range(LEVEL):
             for y in range(LEVEL):
                 color = self.board.grid[x][y]
@@ -171,105 +246,64 @@ class GomokuGame:
                     stone_img = self.img_black if color == 1 else self.img_white
                     self.screen.blit(stone_img, self.dot_list[LEVEL * x + y])
         
-        # 2. [NEW] Draw Hint (if it exists)
         if self.hint_pos:
             hx, hy = self.hint_pos
-            # Get the pixel coordinates from your dot_list
-            # Note: dot_list stores (left, top) for images. Center is + width/2
             px, py = self.dot_list[LEVEL * hx + hy]
-            
-            # Adjust to center (since dot_list is top-left of the image)
             center_x = int(px + self.img_black.get_width() / 2)
             center_y = int(py + self.img_black.get_height() / 2)
-            
-            # Draw a transparent-ish red circle (or solid red ring)
-            pygame.draw.circle(self.screen, (255, 0, 0), (center_x, center_y), 10, 3) # Red Ring
+            pygame.draw.circle(self.screen, (255, 0, 0), (center_x, center_y), 10, 3) 
 
         pygame.display.update()
 
     def _handle_mouse_click(self, pos):
         x, y = pos
         if not (25 <= x <= 725 and 25 <= y <= 725): return
+        
         m = int(round((x - 25) / 50))
         n = int(round((y - 25) / 50))
+        
         if not self.board.is_valid(m, n): return
         if not self.board.is_empty(m, n): return
 
-        # 玩家落子
         self._execute_move(m, n, self.current_player_color)
         
         if self.game_mode == 'pvp': return
 
-        # AI 落子
         if not self.game_over and self.game_mode == 'ai':
             pygame.display.update() 
             sleep(0.1)
             self._trigger_ai_move()
 
     def _execute_move(self, m, n, color):
-        # 1. Clear the hint (if it was visible)
-        self.hint_pos = None
-        
-        # 2. Update the Logical Board
+        self.hint_pos = None 
         self.board.place_stone(m, n, color)
-        
-        # 3. Redraw the Screen
-        # We MUST redraw everything to remove the "Red Ring" hint if it was there.
-        # This replaces the old single-stone blit.
         self._redraw_board()
         
-        # 4. Check Victory Conditions
-        # The board knows if it's 5-row or 6-row based on how you initialized it.
         if self.board.check_win(m, n, color):
             self.game_over = True
             self.winner = color
-            self._show_winner_message(color)
             return
 
         if self.board.is_full():
             self.game_over = True
-            self.winner = 0  # 0 means Draw
-            self._show_winner_message(0)
+            self.winner = 0 
             return
 
-        # 5. Switch Turns (Only for PvP)
-        # In AI mode, the AI triggers its own move separately after this returns.
         if self.game_mode == 'pvp':
             self.current_player_color *= -1
 
     def _trigger_ai_move(self):
         ai_color = -1 
-        
-        # NOTE regarding AI:
-        # The RL Model (Student) is trained for 5-in-a-row. 
-        # If user selects 6, the RL AI might play poorly.
-        # The Heuristic AI (Teacher) logic handles 6-in-a-row correctly if we update it.
-        
-        # Ideally, you should pass self.rule_length to your AI here if it supports it.
-        # For now, assuming RL_AIPlayer uses the model:
         x, y = self.ai.get_move(self.board.grid, ai_color)
-        
         self._execute_move(x, y, ai_color)
 
-    def _show_winner_message(self, color):
-        if color == 1: msg, rgb = 'Black Wins!', (0, 0, 0)
-        elif color == -1: msg, rgb = 'White (AI) Wins!', (217, 20, 30)
-        else: msg, rgb = 'Draw!', (100, 100, 100)
-        text = self.font_m.render(msg, True, rgb)
-        self.screen.blit(text, (80, 650))
-        pygame.display.update()
-
-    # [NEW] Calculate and show the hint
     def _show_hint(self):
-        print("Thinking of a hint...")
-        
-        # 1. Configure the AI to skip "random openings" and think hard immediately
+        print(f"Hint (Rule {self.rule_length})...")
         self.hint_ai.ai_move_count = 100 
-        
-        # 2. Ask Teacher for the best move for the CURRENT player
-        # We pass the current board and the current player's color
         x, y = self.hint_ai.get_move(self.board.grid, -1, -1, self.current_player_color)
-        
-        # 3. Store and Draw
         self.hint_pos = (x, y)
         self._redraw_board()
+
+if __name__ == "__main__":
+    game = GomokuGame()
+    game.run()
