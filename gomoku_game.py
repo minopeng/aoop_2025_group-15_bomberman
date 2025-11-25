@@ -94,59 +94,87 @@ class GomokuGame:
     def _wait_for_menu_input(self):
         print("Game Over. Waiting for 'R'...")
         
-        # Determine Result Text
+        # 1. Determine Text and Color based on result
         if self.rule_length == 'go':
-            # Use the detailed score string generated in _end_go_game
             win_text = self.final_score_text
-            win_color = (255, 215, 0) # Gold color for Go results
+            win_color = (255, 215, 0) # Gold
         else:
-            # Standard Gomoku/Connect4 Win Text
             if self.winner == 1:
-                win_text = "Black Win the game"
-                win_color = (50, 200, 50) 
+                win_text = "Black Wins!"
+                win_color = (50, 255, 50) 
             elif self.winner == -1:
-                win_text = "White (AI) Win the game"
-                win_color = (220, 50, 50)
+                win_text = "White Wins!"
+                win_color = (255, 80, 80) 
             else:
-                win_text = "Draw Game"
+                win_text = "Draw Game!"
                 win_color = (200, 200, 200)
 
-        prompt_text = "Press 'R' to return to Menu"
-        prompt_color = (255, 255, 255)
-
-        surf_win = self.font_m.render(win_text, True, win_color)
-        surf_prompt = self.font_s.render(prompt_text, True, prompt_color)
+        prompt_text = "Press 'R' to Return to Menu"
         
-        vertical_padding = 25
-        total_text_height = surf_win.get_height() + surf_prompt.get_height()
-        w = max(surf_win.get_width(), surf_prompt.get_width()) + 80
-        h = total_text_height + (vertical_padding * 2)
+        # 2. Animation Variables
+        alpha = 0  # 透明度從 0 開始
+        scale = 1.0
+        scale_dir = 0.01 # [修改] 文字呼吸速度也稍微調慢一點，更優雅
         
-        overlay = pygame.Surface((w, h))
-        overlay.fill((40, 40, 40)) 
-        overlay.set_alpha(230)    
+        # 建立遮罩層
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.fill((20, 20, 20)) # 深黑色背景
         
-        center_x = SCREEN_WIDTH // 2
-        center_y = SCREEN_HEIGHT // 2
-        overlay_rect = overlay.get_rect(center=(center_x, center_y))
-        
+        clock = pygame.time.Clock()
         waiting = True
+        
         while waiting:
-            pygame.time.Clock().tick(30)
-            self.screen.blit(overlay, overlay_rect)
-            
-            win_rect = surf_win.get_rect(midtop=(center_x, overlay_rect.top + vertical_padding))
-            prompt_rect = surf_prompt.get_rect(midtop=(center_x, win_rect.bottom))
-            
-            self.screen.blit(surf_win, win_rect)
-            self.screen.blit(surf_prompt, prompt_rect)
-            pygame.display.update()
+            clock.tick(60) 
             
             for event in pygame.event.get():
                 if event.type == QUIT:
                     self.running = False; waiting = False; return
                 if event.type == KEYDOWN and event.key == K_r:
                     waiting = False; return
+
+            # --- [關鍵修改] 減慢變黑速度 ---
+            # 原本是 alpha += 5，現在改成 alpha += 2
+            # 這樣大約需要 2 秒鐘才會達到最暗狀態 (60FPS)
+            if alpha < 210: 
+                alpha += 1 
+                
+            overlay.set_alpha(alpha)
+            
+            # 文字呼吸效果
+            scale += scale_dir
+            if scale > 1.05 or scale < 0.95: # 縮小呼吸幅度
+                scale_dir *= -1
+                
+            # --- 繪圖 ---
+            # 畫上遮罩 (覆蓋在原本的棋盤上)
+            self.screen.blit(overlay, (0, 0))
+            
+            center_x, center_y = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+            
+            # 繪製勝利文字 (帶縮放效果)
+            surf_win = self.font_l.render(win_text, True, win_color)
+            
+            w = int(surf_win.get_width() * scale)
+            h = int(surf_win.get_height() * scale)
+            scaled_win = pygame.transform.smoothscale(surf_win, (w, h))
+            win_rect = scaled_win.get_rect(center=(center_x, center_y - 30))
+            
+            # 陰影效果
+            shadow = self.font_l.render(win_text, True, (0, 0, 0))
+            scaled_shadow = pygame.transform.smoothscale(shadow, (w, h))
+            shadow_rect = scaled_shadow.get_rect(center=(center_x + 3, center_y - 27))
+            self.screen.blit(scaled_shadow, shadow_rect)
+            
+            # 主文字
+            self.screen.blit(scaled_win, win_rect)
+            
+            # 提示文字 (閃爍)
+            if pygame.time.get_ticks() % 1500 < 800: # [修改] 閃爍頻率也調慢一點
+                surf_prompt = self.font_s.render(prompt_text, True, (200, 200, 200))
+                prompt_rect = surf_prompt.get_rect(center=(center_x, center_y + 60))
+                self.screen.blit(surf_prompt, prompt_rect)
+                
+            pygame.display.update()
 
     def _load_ai_model(self, length):
         if length == 'go': return 
@@ -246,14 +274,26 @@ class GomokuGame:
         self.game_over = True
 
     def _undo_move(self):
+        print("Undo requested...")
+        
+        # 1. 圍棋模式
         if self.rule_length == 'go':
-            print("Undo not supported in Go mode yet.")
+            # 圍棋通常是 PvP，所以退一步，換人下
+            if self.go_engine.undo():
+                self.current_player_color *= -1
+                self._redraw_board()
+                print("Go Undo Successful")
+            else:
+                print("Cannot Undo in Go (Start of game)")
             return
             
+        # 2. 五子棋/六子棋 PvP
         if self.game_mode == 'pvp':
             if self.board.undo_last_move():
                 self.current_player_color *= -1
                 self._redraw_board()
+                
+        # 3. 五子棋/六子棋 AI
         elif self.game_mode == 'ai':
             if len(self.board.history) >= 2:
                 self.board.undo_last_move(); self.board.undo_last_move()

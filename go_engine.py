@@ -1,5 +1,7 @@
 # go_engine.py
-# Handles the specific rules of Go (Weiqi/Baduk): Liberties and Capturing.
+# Handles the specific rules of Go (Weiqi/Baduk): Liberties, Capturing, and Undo.
+
+import copy
 
 class GoEngine:
     def __init__(self, board_grid):
@@ -8,6 +10,8 @@ class GoEngine:
         self.cols = len(board_grid[0])
         # Track captured stones: 1=Black, -1=White
         self.prisoners = {1: 0, -1: 0} 
+        # [新增] 用來存歷史紀錄 (History Stack)
+        self.history = [] 
 
     def place_stone(self, r, c, color):
         """
@@ -18,6 +22,9 @@ class GoEngine:
         """
         if self.grid[r][c] != 0:
             return False, []
+
+        # [新增] 在改變棋盤前，先備份當前狀態 (Snapshot)
+        self._save_state()
 
         # 1. Temporarily place the stone
         self.grid[r][c] = color
@@ -37,7 +44,8 @@ class GoEngine:
             my_group = self._get_group(r, c)
             if self._count_liberties(my_group) == 0:
                 # Suicide rule: Illegal move
-                self.grid[r][c] = 0 # Revert
+                self.grid[r][c] = 0 # Revert stone
+                self.history.pop()  # [新增] 如果這步無效，要把剛剛存的歷史刪掉
                 return False, []
 
         # 4. Apply Captures
@@ -48,6 +56,34 @@ class GoEngine:
         self.prisoners[color] += len(captured_stones)
 
         return True, captured_stones
+
+    # [新增] 儲存狀態
+    def _save_state(self):
+        snapshot = {
+            'grid': copy.deepcopy(self.grid), # 深層複製棋盤
+            'prisoners': self.prisoners.copy()
+        }
+        self.history.append(snapshot)
+
+    # [新增] 悔棋功能
+    def undo(self):
+        """Reverts the board to the previous state."""
+        if not self.history:
+            return False # 沒得退了
+        
+        # 取出上一次的狀態
+        last_state = self.history.pop()
+        
+        # 恢復棋盤
+        # 注意：直接修改 self.grid 的內容，而不是換掉物件參考
+        # 這樣外面 GameBoard 持有的 grid 引用才會同步更新
+        for r in range(self.rows):
+            for c in range(self.cols):
+                self.grid[r][c] = last_state['grid'][r][c]
+                
+        # 恢復死子數
+        self.prisoners = last_state['prisoners']
+        return True
 
     def calculate_score(self):
         """
