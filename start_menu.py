@@ -9,7 +9,7 @@ class StartMenu:
         self.background_img = background_img
         self.font_button = font_button
         
-        # Initial Mode
+        # Current Rule: 5, 6, 4, or 'go'
         self.current_rule = 5 
         
         # Colors
@@ -20,19 +20,25 @@ class StartMenu:
         QUIT_COLOR   = (205, 92, 92)
         QUIT_HOVER   = (255, 99, 71)
         
-        self.title_surf = font_title.render("GOMOKU + C4", True, (40, 40, 40))
+        self.title_surf = font_title.render("Board Game Arena", True, (40, 40, 40))
         self.title_rect = self.title_surf.get_rect(center=(SCREEN_WIDTH // 2, 150))
 
         center_x = SCREEN_WIDTH // 2
         
         # Buttons
-        self.btn_mode = Button(center_x, 280, 240, 50, f"Rule: {self.current_rule}-in-a-Row", font_button, MODE_COLOR, MODE_HOVER)
+        self.btn_mode = Button(center_x, 280, 240, 50, self._get_rule_text(), font_button, MODE_COLOR, MODE_HOVER)
         self.btn_ai = Button(center_x, 350, 240, 60, "Player vs AI", font_button, BUTTON_COLOR, BUTTON_HOVER)
         self.btn_pvp = Button(center_x, 430, 240, 60, "Player vs Player", font_button, BUTTON_COLOR, BUTTON_HOVER)
         self.btn_quit = Button(center_x, 510, 240, 60, "Quit Game", font_button, QUIT_COLOR, QUIT_HOVER)
 
+    def _get_rule_text(self):
+        if self.current_rule == 'go':
+            return "Mode: Go (Weiqi)"
+        else:
+            return f"Rule: {self.current_rule}-in-a-Row"
+
     def run(self):
-        """ Returns: (action, rule_length) e.g., ('ai', 4) """
+        """ Returns: (action, rule_length) """
         clock = pygame.time.Clock()
         
         while True:
@@ -41,23 +47,30 @@ class StartMenu:
             for event in pygame.event.get():
                 if event.type == QUIT: return None, 5
                 
-                # [NEW] Press 'Q' to Quit the Game entirely
                 if event.type == KEYDOWN and event.key == K_q:
                     return None, 5
                 
-                # Handle Mode Toggle
+                # Toggle Rules: 5 -> 6 -> 4 -> Go -> 5
                 if self.btn_mode.is_clicked(event):
                     if self.current_rule == 5: self.current_rule = 6
                     elif self.current_rule == 6: self.current_rule = 4
+                    elif self.current_rule == 4: self.current_rule = 'go' # Go Mode
                     else: self.current_rule = 5
-                    self.btn_mode.text = f"Rule: {self.current_rule}-in-a-Row"
+                    
+                    self.btn_mode.text = self._get_rule_text()
                 
-                # Handle Button Clicks
-                if self.btn_ai.is_clicked(event): return 'ai', self.current_rule
+                # Handle Start
+                if self.btn_ai.is_clicked(event): 
+                    # AI not supported for Go yet
+                    if self.current_rule == 'go':
+                        print("AI not available for Go mode yet. Switching to PvP.")
+                        return 'pvp', 'go'
+                    return 'ai', self.current_rule
+                    
                 if self.btn_pvp.is_clicked(event): return 'pvp', self.current_rule
                 if self.btn_quit.is_clicked(event): return None, 5
 
-            # Updates & Drawing
+            # Draw
             self.btn_mode.check_hover(mouse_pos)
             self.btn_ai.check_hover(mouse_pos)
             self.btn_pvp.check_hover(mouse_pos)
