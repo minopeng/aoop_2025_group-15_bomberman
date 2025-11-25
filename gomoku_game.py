@@ -15,7 +15,6 @@ from go_engine import GoEngine
 class GomokuGame:
     def __init__(self):
         pygame.init()
-        # [Sound] Initialize Mixer
         pygame.mixer.init()
         
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
@@ -34,25 +33,22 @@ class GomokuGame:
             self.img_white = pygame.transform.smoothscale(img_white, (int(img_white.get_width() * 1.5), int(img_white.get_height() * 1.5)))
             self.img_black = pygame.transform.smoothscale(img_black, (int(img_black.get_width() * 1.5), int(img_black.get_height() * 1.5)))
             
-            # [Ghost] Create semi-transparent stones
+            # [Ghost]
             self.img_white_ghost = self.img_white.copy()
             self.img_white_ghost.set_alpha(128)
             self.img_black_ghost = self.img_black.copy()
             self.img_black_ghost.set_alpha(128)
 
-            # [Sound] Load Sounds
+            # [Sound]
             self.sound_move = pygame.mixer.Sound('./Res/drop.wav')
             self.sound_move.set_volume(0.8)
-            
             self.sound_win = pygame.mixer.Sound('./Res/win.wav')
             self.sound_win.set_volume(1.0)
-            
             self.sound_loss = pygame.mixer.Sound('./Res/loss.wav')
             self.sound_loss.set_volume(1.0)
             
         except pygame.error as e:
             print(f"❌ Error: Missing resources - {e}")
-            print("Make sure 'bg.png', 'white.png', 'black.png', 'drop.wav', 'win.wav', 'loss.wav' are in './Res/'")
             sys.exit()
 
         self.board = GameBoard()
@@ -68,8 +64,6 @@ class GomokuGame:
         self.force_quit_to_menu = False 
         self.winner = 0
         self.current_player_color = 1 
-        
-        # Go-specific variables
         self.pass_count = 0
         self.final_score_text = "" 
         
@@ -77,12 +71,11 @@ class GomokuGame:
                          for i in range(LEVEL) for j in range(LEVEL)]
         
         self.hint_pos = None
-        self.ghost_pos = None # [Ghost] Store current hover position
+        self.ghost_pos = None 
 
     def run(self):
         while self.running:
             mode, length = self.menu.run()
-            
             if mode is None:
                 self.running = False
                 break
@@ -90,7 +83,6 @@ class GomokuGame:
             self.game_mode = mode
             self.rule_length = length
             
-            # Load AI Models based on rules
             if mode == 'ai':
                 if length == 'go':
                     print("AI not supported for Go. Switching to PvP.")
@@ -98,10 +90,7 @@ class GomokuGame:
                 else:
                     self._load_ai_model(length)
             
-            # Load Hint AI (Heuristic Teacher)
             if length != 'go':
-                # Note: AIPlayer needs to handle 6-in-a-row logic if length=6
-                # If you separated files, import the correct class here or inside logic
                 self.hint_ai = AIPlayer(target_length=self.rule_length)
             
             label = "Go (Weiqi)" if length == 'go' else f"Rule: {length}"
@@ -120,28 +109,34 @@ class GomokuGame:
         pygame.quit()
         sys.exit()
 
+    def _prepare_replay_data(self):
+        if self.rule_length == 'go': return [] 
+        replay_data = []
+        for (x, y) in self.board.history:
+            color = self.board.grid[x][y]
+            replay_data.append((x, y, color))
+        return replay_data
+
     def _wait_for_menu_input(self):
-        """Fancy Game Over Screen with Animation"""
-        print("Game Over. Waiting for 'R'...")
+        """Fancy Game Over Screen with Replay"""
+        print("Game Over. Press 'R' to Menu, 'Left/Right' to Replay.")
         
-        # 1. Determine Text and Color
+        full_replay_history = self._prepare_replay_data()
+        current_step = len(full_replay_history)
+        max_step = len(full_replay_history)
+        is_replaying = False 
+        
         if self.rule_length == 'go':
             win_text = self.final_score_text
-            win_color = (255, 215, 0) # Gold
+            win_color = (255, 215, 0) 
         else:
-            if self.winner == 1:
-                win_text = "Black Wins!"
-                win_color = (50, 255, 50) 
-            elif self.winner == -1:
-                win_text = "White Wins!"
-                win_color = (255, 80, 80) 
-            else:
-                win_text = "Draw Game!"
-                win_color = (200, 200, 200)
+            if self.winner == 1: win_text, win_color = "Black Wins!", (50, 255, 50)
+            elif self.winner == -1: win_text, win_color = "White Wins!", (255, 80, 80)
+            else: win_text, win_color = "Draw Game!", (200, 200, 200)
 
-        prompt_text = "Press 'R' to Return to Menu"
+        prompt_text = "Press 'R' to Return to Menu" # [修改] 統一提示文字
+        replay_hint_text = "Replay: [<-] Back | [->] Fwd"
         
-        # 2. Animation Variables
         alpha = 0  
         scale = 1.0
         scale_dir = 0.01 
@@ -152,51 +147,90 @@ class GomokuGame:
         clock = pygame.time.Clock()
         waiting = True
         
+        self.ghost_pos = None
+        
         while waiting:
             clock.tick(60) 
             
-            for event in pygame.event.get():
-                if event.type == QUIT:
-                    self.running = False; waiting = False; return
-                if event.type == KEYDOWN and event.key == K_r:
-                    waiting = False; return
+            self._redraw_board(update=False)
 
-            # Animation: Slow Fade In
-            if alpha < 210: 
-                alpha += 2 
+            for event in pygame.event.get():
+                if event.type == QUIT: self.running = False; waiting = False; return
+                if event.type == KEYDOWN:
+                    if event.key == K_r: waiting = False; return
+                    
+                    if event.key == K_LEFT:
+                        if self.rule_length == 'go':
+                            if self.go_engine.undo(): is_replaying = True
+                        else:
+                            if current_step > 0:
+                                self.board.undo_last_move()
+                                current_step -= 1
+                                is_replaying = True
+                                
+                    if event.key == K_RIGHT:
+                        if self.rule_length != 'go':
+                            if current_step < max_step:
+                                next_x, next_y, next_color = full_replay_history[current_step]
+                                self.board.place_stone(next_x, next_y, next_color)
+                                current_step += 1
+                                is_replaying = True
+                                self.sound_move.play()
+
+            # Animation
+            target_alpha = 100 if is_replaying else 180 
+            
+            if alpha < target_alpha: alpha += 2 
+            elif alpha > target_alpha: alpha -= 5
             overlay.set_alpha(alpha)
             
-            # Animation: Text Pulse
             scale += scale_dir
-            if scale > 1.05 or scale < 0.95:
-                scale_dir *= -1
+            if scale > 1.05 or scale < 0.95: scale_dir *= -1
                 
-            # Draw
             self.screen.blit(overlay, (0, 0))
-            
             center_x, center_y = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
             
-            # Render Victory Text
-            surf_win = self.font_l.render(win_text, True, win_color)
-            w = int(surf_win.get_width() * scale)
-            h = int(surf_win.get_height() * scale)
-            scaled_win = pygame.transform.smoothscale(surf_win, (w, h))
-            win_rect = scaled_win.get_rect(center=(center_x, center_y - 30))
-            
-            # Render Shadow
-            shadow = self.font_l.render(win_text, True, (0, 0, 0))
-            scaled_shadow = pygame.transform.smoothscale(shadow, (w, h))
-            shadow_rect = scaled_shadow.get_rect(center=(center_x + 3, center_y - 27))
-            self.screen.blit(scaled_shadow, shadow_rect)
-            
-            self.screen.blit(scaled_win, win_rect)
-            
-            # Render Prompt (Blinking)
-            if pygame.time.get_ticks() % 1500 < 800: 
-                surf_prompt = self.font_s.render(prompt_text, True, (200, 200, 200))
-                prompt_rect = surf_prompt.get_rect(center=(center_x, center_y + 60))
-                self.screen.blit(surf_prompt, prompt_rect)
+            if is_replaying:
+                # [復盤模式]
+                step_info = f"Step: {current_step} / {max_step}"
+                surf_step = self.font_m.render(step_info, True, (100, 200, 255))
+                step_rect = surf_step.get_rect(center=(center_x, 50))
+                self.screen.blit(surf_step, step_rect)
                 
+                # 1. 顯示 Replay 操作提示 (往上移一點)
+                surf_hint = self.font_s.render(replay_hint_text, True, (200, 200, 200))
+                hint_rect = surf_hint.get_rect(center=(center_x, SCREEN_HEIGHT - 80))
+                self.screen.blit(surf_hint, hint_rect)
+
+                # 2. [新增] 顯示返回 Menu 提示
+                surf_return = self.font_s.render(prompt_text, True, (150, 150, 150))
+                return_rect = surf_return.get_rect(center=(center_x, SCREEN_HEIGHT - 40))
+                self.screen.blit(surf_return, return_rect)
+                
+            else:
+                # [結算模式]
+                surf_win = self.font_l.render(win_text, True, win_color)
+                w = int(surf_win.get_width() * scale)
+                h = int(surf_win.get_height() * scale)
+                scaled_win = pygame.transform.smoothscale(surf_win, (w, h))
+                win_rect = scaled_win.get_rect(center=(center_x, center_y - 30))
+                
+                shadow = self.font_l.render(win_text, True, (0, 0, 0))
+                scaled_shadow = pygame.transform.smoothscale(shadow, (w, h))
+                shadow_rect = scaled_shadow.get_rect(center=(center_x + 3, center_y - 27))
+                self.screen.blit(scaled_shadow, shadow_rect)
+                self.screen.blit(scaled_win, win_rect)
+                
+                if pygame.time.get_ticks() % 2000 < 1000:
+                    surf_replay = self.font_s.render(replay_hint_text, True, (150, 150, 150))
+                    replay_rect = surf_replay.get_rect(center=(center_x, center_y + 40))
+                    self.screen.blit(surf_replay, replay_rect)
+
+                if pygame.time.get_ticks() % 1500 < 800: 
+                    surf_prompt = self.font_s.render(prompt_text, True, (200, 200, 200))
+                    prompt_rect = surf_prompt.get_rect(center=(center_x, center_y + 80))
+                    self.screen.blit(surf_prompt, prompt_rect)
+            
             pygame.display.update()
 
     def _load_ai_model(self, length):
@@ -213,8 +247,7 @@ class GomokuGame:
                 print("✅ AI Loaded Successfully!")
             except Exception as e:
                 print(f"❌ Error: {e}")
-                # Fallback to a new random AI if loading fails
-                self.ai = RL_AIPlayer() 
+                self.ai = RL_AIPlayer()
         else:
             print(f"⚠️ Not found: {model_path}. Using untrained AI.")
             self.ai = RL_AIPlayer() 
@@ -233,7 +266,7 @@ class GomokuGame:
         self.winner = 0
         self.current_player_color = 1 
         self.hint_pos = None
-        self.ghost_pos = None # [Ghost] Reset
+        self.ghost_pos = None 
         
         self.screen.blit(self.img_bg, (0, 0))
         pygame.display.update()
@@ -241,15 +274,12 @@ class GomokuGame:
     def _play_match(self):
         while not self.game_over:
             self._handle_events()
-            # CPU optimization to prevent freezing
             if self.game_mode == 'ai' and self.current_player_color == -1:
                 pass
     
     def _handle_events(self):
         for event in pygame.event.get():
-            if event.type == QUIT: 
-                pygame.quit(); sys.exit()
-            
+            if event.type == QUIT: pygame.quit(); sys.exit()
             if event.type == KEYDOWN:
                 if event.key == K_r: self.force_quit_to_menu = True; self.game_over = True; return
                 if event.key == K_p and self.rule_length == 'go' and not self.game_over: self._handle_go_pass()
@@ -260,9 +290,7 @@ class GomokuGame:
                 if self.game_mode == 'ai' and self.current_player_color == -1: continue 
                 self._handle_mouse_click(event.pos)
 
-            # [Ghost] Handle mouse motion
             if event.type == MOUSEMOTION and not self.game_over:
-                # Don't show ghost during AI turn
                 if self.game_mode == 'ai' and self.current_player_color == -1:
                     if self.ghost_pos is not None:
                         self.ghost_pos = None
@@ -281,7 +309,6 @@ class GomokuGame:
         m = int(round((x - 25) / 50))
         n = int(round((y - 25) / 50))
 
-        # Check validity for ghost
         is_valid_spot = False
         if self.rule_length == 'go':
             if 0 <= m < LEVEL and 0 <= n < LEVEL and self.board.grid[m][n] == 0:
@@ -291,7 +318,6 @@ class GomokuGame:
                 is_valid_spot = True
 
         new_ghost = (m, n) if is_valid_spot else None
-        
         if new_ghost != self.ghost_pos:
             self.ghost_pos = new_ghost
             self._redraw_board()
@@ -303,34 +329,29 @@ class GomokuGame:
         if self.pass_count >= 2: self._end_go_game()
 
     def _end_go_game(self):
-        print("Both passed. Calculating score...")
         black_score, white_score = self.go_engine.calculate_score()
         print(f"Black: {black_score}, White: {white_score}")
-        
         if black_score > white_score:
             self.winner = 1
             self.final_score_text = f"Black Wins! (B:{black_score} vs W:{white_score})"
-            self.sound_win.play() # [Sound]
+            self.sound_win.play()
         elif white_score > black_score:
             self.winner = -1
             self.final_score_text = f"White Wins! (W:{white_score} vs B:{black_score})"
-            self.sound_win.play() # [Sound]
+            self.sound_win.play()
         else:
             self.winner = 0
             self.final_score_text = f"Draw! (Score: {black_score})"
-            self.sound_loss.play() # [Sound] Draw sound
-            
+            self.sound_loss.play()
         self.game_over = True
 
     def _undo_move(self):
         print("Undo requested...")
-        
         if self.rule_length == 'go':
             if self.go_engine.undo():
                 self.current_player_color *= -1
                 self._redraw_board()
             return
-            
         if self.game_mode == 'pvp':
             if self.board.undo_last_move():
                 self.current_player_color *= -1
@@ -342,10 +363,8 @@ class GomokuGame:
             elif len(self.board.history) == 1:
                 self.board.undo_last_move(); self._redraw_board()
 
-    def _redraw_board(self):
+    def _redraw_board(self, update=True):
         self.screen.blit(self.img_bg, (0, 0))
-        
-        # 1. Stones
         for x in range(LEVEL):
             for y in range(LEVEL):
                 color = self.board.grid[x][y]
@@ -353,13 +372,11 @@ class GomokuGame:
                     stone_img = self.img_black if color == 1 else self.img_white
                     self.screen.blit(stone_img, self.dot_list[LEVEL * x + y])
         
-        # 2. [Ghost]
         if self.ghost_pos:
             gx, gy = self.ghost_pos
             ghost_img = self.img_black_ghost if self.current_player_color == 1 else self.img_white_ghost
             self.screen.blit(ghost_img, self.dot_list[LEVEL * gx + gy])
 
-        # 3. Last Move Marker (Red Dot)
         if self.rule_length != 'go' and self.board.history:
             last_x, last_y = self.board.history[-1]
             px, py = self.dot_list[LEVEL * last_x + last_y]
@@ -367,7 +384,6 @@ class GomokuGame:
             center_y = int(py + self.img_black.get_height() / 2)
             pygame.draw.circle(self.screen, (220, 50, 50), (center_x, center_y), 5)
 
-        # 4. Hint (Red Ring)
         if self.hint_pos:
             hx, hy = self.hint_pos
             px, py = self.dot_list[LEVEL * hx + hy]
@@ -375,7 +391,8 @@ class GomokuGame:
             center_y = int(py + self.img_black.get_height() / 2)
             pygame.draw.circle(self.screen, (255, 0, 0), (center_x, center_y), 10, 3) 
             
-        pygame.display.update()
+        if update:
+            pygame.display.update()
 
     def _handle_mouse_click(self, pos):
         x, y = pos
@@ -397,7 +414,6 @@ class GomokuGame:
         success, captures = self.go_engine.place_stone(m, n, color)
         if not success: return 
         
-        # [Sound] Play sound
         self.sound_move.play()
         if captures: print(f"Captured {len(captures)} stones!")
         
@@ -409,42 +425,27 @@ class GomokuGame:
         self.hint_pos = None 
         self.ghost_pos = None 
         
-        # 1. 落子
         self.board.place_stone(m, n, color)
         self._redraw_board()
         
-        # 2. 檢查勝利
         if self.board.check_win(m, n, color):
             self.game_over = True
             self.winner = color
-            
-            print(f"DEBUG: Game Over! Winner is {color} (1=Player, -1=AI)")
-            print(f"DEBUG: Game Mode is {self.game_mode}")
-
-            if self.game_mode == 'pvp':
-                self.sound_win.play()
+            if self.game_mode == 'pvp': self.sound_win.play()
             else:
-                # AI 模式
-                if color == 1:
-                    self.sound_win.play()
-                else:
-                    self.sound_loss.play() # <--- 關鍵是這一行
-            
-            # 如果這裡有印出 "DEBUG: 播放失敗音效"，但你沒聽到聲音
-            # 那就是音效檔案本身的問題！
-            
+                if color == 1: self.sound_win.play()
+                else: self.sound_loss.play()
+            self._redraw_board()
             return 
 
-        # 3. 檢查平局
         if self.board.is_full():
             self.game_over = True
             self.winner = 0
             self.sound_loss.play()
+            self._redraw_board()
             return
 
-        # 4. 播放落子聲 (只有遊戲繼續時才播)
         self.sound_move.play()
-
         if self.game_mode == 'pvp':
             self.current_player_color *= -1
 
