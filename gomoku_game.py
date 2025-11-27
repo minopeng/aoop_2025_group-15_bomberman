@@ -411,7 +411,7 @@ class GomokuGame:
         if self.game_mode in ['pvp', 'lan_host', 'lan_join']:
             self.current_player_color *= -1
         
-        # NOTE: Network send logic is in handle_mouse_click to prevent duplicate sending
+        
         
         self._redraw_board()
 
@@ -532,7 +532,7 @@ class GomokuGame:
         
         clock = pygame.time.Clock()
         waiting = True; self.ghost_pos = None
-        
+    
         while waiting:
             clock.tick(60); self._redraw_board(update=False)
             for event in pygame.event.get():
