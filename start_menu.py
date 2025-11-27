@@ -117,7 +117,7 @@ class StartMenu:
                     if self._check_click(self.btn_back_loc, events): self.show_local_options = False
 
                 else:
-                    # Root Menu
+                    # Root menu
                     self._draw_buttons([self.btn_local, self.btn_lan, self.btn_set, self.btn_quit], mouse_pos, events)
                     
                     if self._check_click(self.btn_local, events): self.show_local_options = True
