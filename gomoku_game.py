@@ -32,6 +32,31 @@ class GomokuGame:
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
         pygame.display.set_caption("Board Game AI Arena")
         
+        # [修改] 智慧字體選擇器 (不需下載檔案)
+        # 取得系統所有可用字體列表 (轉成小寫)
+        available_fonts = pygame.font.get_fonts()
+        
+        # 定義我們想要的字體清單 (優先順序由上而下)
+        # 這些是各個作業系統常見的「好看/圓潤/可愛」字體
+        font_preferences = [
+            "comicsansms",      # Windows: 經典可愛字體
+            "chalkboard",       # Mac: 黑板手寫字
+            "ubuntu",           # Linux: 很現代的圓潤字體
+            "segoeui",          # Windows: 現代介面字體
+            "arialrounded",     # 通用: 圓頭 Arial
+            "verdana",          # 通用: 寬大清晰
+            "microsoftyahei",   # Windows: 微軟雅黑 (支援中文)
+            "wqy-microhei"      # Linux: 文泉驛微米黑 (支援中文)
+        ]
+        
+        selected_font = "arial" # 萬一上面都沒有，就用 Arial
+        
+        for f in font_preferences:
+            if f in available_fonts:
+                selected_font = f
+                print(f"✅ Auto-selected font: {f}")
+                break
+
         self.font_m = pygame.font.SysFont("黑体", 40)
         self.font_l = pygame.font.SysFont("黑体", 60)
         self.font_s = pygame.font.SysFont("黑体", 30)
