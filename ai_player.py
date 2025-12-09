@@ -1,7 +1,7 @@
 # ai_player.py
 # [升級版] 五子棋 (Gomoku) 演算法老師
 # 懂得分辨：活四、死四、活三，防守非常嚴密
-
+##################################################
 from random import randint
 from constants import LEVEL, GRADE, MAX_SCORE
 
@@ -100,7 +100,6 @@ class AIPlayer:
         if count == 4 and (open_end_1 or open_end_2):
             scores[x][y] += 1000 
             return
-##################################################
         # 4. 活三 (Live 3): 兩頭空 (_XXX_) -> 做成活四的基礎
         if count == 3 and open_end_1 and open_end_2:
             scores[x][y] += 1000 # 威脅很大，僅次於死四
