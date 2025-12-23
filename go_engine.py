@@ -2,7 +2,7 @@
 # Handles the specific rules of Go (Weiqi/Baduk): Liberties, Capturing, and Undo.
 
 import copy
-#####
+####
 class GoEngine:
     def __init__(self, board_grid):
         self.grid = board_grid
