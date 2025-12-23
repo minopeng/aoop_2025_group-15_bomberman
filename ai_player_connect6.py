@@ -1,4 +1,4 @@
-# ai_player_connect6.py
+# ai_player_connect6.py =
 # [專用版] 六子棋 (Connect 6) 演算法老師
 # 懂得：連 6 顆才算贏，連 5 顆是致命威脅
 
