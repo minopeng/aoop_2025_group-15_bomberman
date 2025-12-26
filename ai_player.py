@@ -87,7 +87,6 @@ class AIPlayer:
             scores[x][y] += 100
             return
             
-        # 6. 活二 (Live 2): (_XX_)
         if count == 2 and open_end_1 and open_end_2:
             scores[x][y] += 50
             return
