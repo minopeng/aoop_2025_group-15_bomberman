@@ -115,7 +115,6 @@ class AIPlayer:
         
         if not best_moves: return None
         
-        # 如果有多個同分點，隨機選一個 (增加變化，避免被背譜)
         return best_moves[randint(0, len(best_moves)-1)]
 
     def _autoplay(self, ch, m, n):
