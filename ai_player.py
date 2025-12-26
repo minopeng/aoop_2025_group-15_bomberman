@@ -3,10 +3,6 @@ from random import randint
 from constants import LEVEL, GRADE, MAX_SCORE
 
 class AIPlayer:
-    """
-    五子棋專用演算法 (Heuristic)
-    Target: 5-in-a-row
-    """
     def __init__(self, target_length=5):
         self.level = LEVEL
         self.grade = GRADE
