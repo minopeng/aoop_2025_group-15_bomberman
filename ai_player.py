@@ -1,5 +1,4 @@
 # ai_player.py
-# [升級版] 五子棋 (Gomoku) 演算法老師
 
 from random import randint
 from constants import LEVEL, GRADE, MAX_SCORE
