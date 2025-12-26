@@ -73,7 +73,6 @@ class AIPlayer:
             scores[x][y] += 10000 # 必須擋/必須下
             return
 
-        # 3. 死四 (Dead 4/Rush 4): 一頭空 (XXXX_) -> 必須擋
         if count == 4 and (open_end_1 or open_end_2):
             scores[x][y] += 1000 
             return
