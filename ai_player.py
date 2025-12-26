@@ -65,7 +65,6 @@ class AIPlayer:
             j += dy
         open_end_1 = (0 <= i < self.level and 0 <= j < self.level and board[i][j] == 0)
         
-        # 向後數
         i, j = x - dx, y - dy
         while 0 <= i < self.level and 0 <= j < self.level and board[i][j] == color:
             count += 1
