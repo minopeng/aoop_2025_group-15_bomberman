@@ -22,7 +22,6 @@ class AIPlayer:
         
         score_opponent = self._evaluate_board(board_grid, -ai_color)
 
-        # 3. 綜合評估
         best_move = self._get_best_move(score_self, score_opponent)
         
         if best_move is None:
