@@ -30,7 +30,6 @@ class AIPlayer:
         return best_move
 
     def _evaluate_board(self, board, color):
-        """評估棋盤上每一個空位的價值"""
         scores = [[0 for _ in range(self.level)] for _ in range(self.level)]
         directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
 
