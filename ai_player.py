@@ -35,7 +35,7 @@ class AIPlayer:
 
         for x in range(self.level):
             for y in range(self.level):
-                if board[x][y] != 0: continue # 只評估空位
+                if board[x][y] != 0: continue 
 
                 for dx, dy in directions:
                     self._analyze_line(board, x, y, dx, dy, color, scores)
