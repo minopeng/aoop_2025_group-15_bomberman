@@ -44,10 +44,6 @@ class AIPlayer:
         return scores
 
     def _analyze_line(self, board, x, y, dx, dy, color, scores):
-        """
-        分析單一線上的形狀 (活/死/衝)
-        核心：五子棋規則
-        """
         count = 1 # 包含(x,y)自己
         i, j = x + dx, y + dy
         while 0 <= i < self.level and 0 <= j < self.level and board[i][j] == color:
