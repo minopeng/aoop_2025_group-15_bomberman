@@ -71,7 +71,7 @@ class AIPlayer:
             return
 
         if count == 3 and open_end_1 and open_end_2:
-            scores[x][y] += 1000 # 威脅很大，僅次於死四
+            scores[x][y] += 1000 
             return
 
         if count == 3 and (open_end_1 or open_end_2):
