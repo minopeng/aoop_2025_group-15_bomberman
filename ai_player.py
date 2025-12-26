@@ -44,8 +44,6 @@ class AIPlayer:
     def _evaluate_board(self, board, color):
         """評估棋盤上每一個空位的價值"""
         scores = [[0 for _ in range(self.level)] for _ in range(self.level)]
-        
-        # 4個方向: 橫, 豎, 右斜, 左斜
         directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
 
         for x in range(self.level):
