@@ -13,9 +13,6 @@ class AIPlayer:
         self.THREAT_LEN = 4
 
     def get_move(self, board_grid, last_move_x, last_move_y, ai_color):
-        """
-        AI 決策的主函式
-        """
         self.ai_move_count += 1
         
         if self.ai_move_count < 2:
