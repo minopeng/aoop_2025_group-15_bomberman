@@ -131,7 +131,6 @@ class AIPlayer:
         return best_moves[randint(0, len(best_moves)-1)]
 
     def _autoplay(self, ch, m, n):
-        # 嘗試在對手上一步附近找空位
         a1 = [1, -1, 1, -1, 1, -1, 0, 0]
         b1 = [1, -1, -1, 1, 0, 0, 1, -1]
         rand = randint(0, 7)
