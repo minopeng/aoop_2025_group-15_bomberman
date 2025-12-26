@@ -68,7 +68,6 @@ class AIPlayer:
             scores[x][y] += 100000
             return
 
-        # 2. 活四 (Live 4): 兩頭空 (_XXXX_) -> 下一步必勝
         if count == 4 and open_end_1 and open_end_2:
             scores[x][y] += 10000 # 必須擋/必須下
             return
