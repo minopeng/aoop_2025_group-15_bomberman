@@ -58,7 +58,6 @@ class AIPlayer:
             j -= dy
         open_end_2 = (0 <= i < self.level and 0 <= j < self.level and board[i][j] == 0)
 
-        # 1. 成五 (Win): 連成 5 顆 -> 贏了
         if count >= 5:
             scores[x][y] += 100000
             return
