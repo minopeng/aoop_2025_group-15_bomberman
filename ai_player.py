@@ -14,7 +14,6 @@ class AIPlayer:
         self.ai_move_count = 0
         self.target_length = 5 
         self.WIN_LEN = 5
-        # 關鍵威脅: 4 (活四必勝)
         self.THREAT_LEN = 4
 
     def get_move(self, board_grid, last_move_x, last_move_y, ai_color):
