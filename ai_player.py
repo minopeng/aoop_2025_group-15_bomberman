@@ -102,7 +102,6 @@ class AIPlayer:
         for x in range(self.level):
             for y in range(self.level):
                 # 總分 = 自己的進攻分 + (對手的威脅分 * 防守係數)
-                # 防守係數 1.2：稍微偏向防守，因為五子棋只要漏擋一次就輸了
                 total_score = score_self[x][y] + (score_opponent[x][y] * 1.2)
                 
                 if total_score > max_score:
