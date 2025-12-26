@@ -1,5 +1,4 @@
 # ai_player.py
-
 from random import randint
 from constants import LEVEL, GRADE, MAX_SCORE
 
@@ -13,8 +12,6 @@ class AIPlayer:
         self.grade = GRADE
         self.MAX_SCORE = MAX_SCORE
         self.ai_move_count = 0
-        
-        # 五子棋: 連5贏
         self.target_length = 5 
         self.WIN_LEN = 5
         # 關鍵威脅: 4 (活四必勝)
