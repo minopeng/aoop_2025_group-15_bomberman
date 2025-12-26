@@ -92,7 +92,6 @@ class AIPlayer:
             scores[x][y] += 50
             return
 
-        # 基礎連接分
         scores[x][y] += count * 10
 
     def _get_best_move(self, score_self, score_opponent):
