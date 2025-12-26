@@ -82,7 +82,6 @@ class AIPlayer:
             scores[x][y] += 1000 # 威脅很大，僅次於死四
             return
 
-        # 5. 死三 (Dead 3): 一頭空 (XXX_)
         if count == 3 and (open_end_1 or open_end_2):
             scores[x][y] += 100
             return
