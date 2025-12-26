@@ -20,7 +20,6 @@ class AIPlayer:
         
         score_self = self._evaluate_board(board_grid, ai_color)
         
-        # 2. 掃描對手 (防守分數)
         score_opponent = self._evaluate_board(board_grid, -ai_color)
 
         # 3. 綜合評估
