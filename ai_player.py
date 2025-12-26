@@ -23,7 +23,6 @@ class AIPlayer:
         """
         self.ai_move_count += 1
         
-        # 開局隨機幾步，增加變化
         if self.ai_move_count < 2:
             return self._autoplay(board_grid, last_move_x, last_move_y)
         
