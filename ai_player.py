@@ -63,7 +63,7 @@ class AIPlayer:
             return
 
         if count == 4 and open_end_1 and open_end_2:
-            scores[x][y] += 10000 # 必須擋/必須下
+            scores[x][y] += 10000 
             return
 
         if count == 4 and (open_end_1 or open_end_2):
