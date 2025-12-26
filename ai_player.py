@@ -25,7 +25,6 @@ class AIPlayer:
         if self.ai_move_count < 2:
             return self._autoplay(board_grid, last_move_x, last_move_y)
         
-        # 1. 掃描自己 (攻擊分數)
         score_self = self._evaluate_board(board_grid, ai_color)
         
         # 2. 掃描對手 (防守分數)
